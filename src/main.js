@@ -256,31 +256,26 @@ async function init() {
     
     // 3. Fallback to data.json if no uploaded data is loaded (default school meal sample)
     if (!isUploadedDataUsed) {
-      const response = await fetch('/data.json');
-      if (!response.ok) {
-        throw new Error('Failed to load budget data');
+      try {
+        const response = await fetch('./data.json');
+        if (response.ok) {
+          const data = await response.json();
+          appData.revenue = data.revenue ? data.revenue.slice(1) : [];
+          appData.expenditure = data.expenditure ? data.expenditure.slice(1) : [];
+          appData.history = data.history ? data.history.slice(1) : [];
+          
+          if (appState.profiles['학교급식운영']) {
+            appState.profiles['학교급식운영'].uploadedData = {
+              revenue: appData.revenue,
+              expenditure: appData.expenditure,
+              history: appData.history
+            };
+          }
+          console.log('Loaded default records from data.json');
+        }
+      } catch (err) {
+        console.warn('Fallback: data.json could not be loaded', err);
       }
-      const data = await response.json();
-      
-      // Skip header rows
-      appData.revenue = data.revenue.slice(1);
-      appData.expenditure = data.expenditure.slice(1);
-      appData.history = data.history.slice(1);
-      
-      // Store in '학교급식운영' profile
-      if (appState.profiles['학교급식운영']) {
-        appState.profiles['학교급식운영'].uploadedData = {
-          revenue: appData.revenue,
-          expenditure: appData.expenditure,
-          history: appData.history
-        };
-      }
-      
-      console.log('Loaded default records from data.json:', {
-        revenue: appData.revenue.length,
-        expenditure: appData.expenditure.length,
-        history: appData.history.length
-      });
     }
     
     // Sort transactions by date descending
