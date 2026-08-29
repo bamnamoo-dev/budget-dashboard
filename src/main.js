@@ -1,4 +1,4 @@
-// State Variables
+﻿// State Variables
 let appData = {
   revenue: [],
   expenditure: [],
