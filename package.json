@@ -1,14 +1,13 @@
-{
+﻿{
   "name": "k-lunch-budget-dashboard",
   "private": true,
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "npx vite --host --port 3000 --open",
-    "build": "npx vite build",
-    "preview": "npx vite preview --port 3000 --open"
+    "dev": "vite --host --port 3000 --open",
+    "build": "vite build",
+    "preview": "vite preview --port 3000 --open"
   },
-  "devDependencies": {
+  "dependencies": {
     "vite": "^5.2.11"
   }
 }
