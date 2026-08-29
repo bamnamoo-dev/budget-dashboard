@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026학년도 예산정산 대시보드</title>
+  <!-- Anti-FOUC Theme Script -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('k_budget_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- SheetJS (Excel Parser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-icon">
+          <i class="fa-solid fa-calculator"></i>
+        </div>
+        <div class="logo-text">
+          <h2 id="sidebar-main-title">예산정산 대시보드</h2>
+          <span>K-Edu Budget 2026</span>
+        </div>
+      </div>
+      <!-- Profile Selection -->
+      <div class="profile-selector-container" style="padding: 12px 16px; border-bottom: 1px solid var(--border-color);">
+        <label for="select-active-profile" style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500;">분석 대상 사업</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="select-active-profile" style="flex-grow: 1; width: 100%; height: 34px; padding: 0 8px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-main); font-family: inherit; font-size: 0.82rem; cursor: pointer; outline: none;">
+            <!-- Dynamically populated -->
+          </select>
+          <button id="btn-manage-profiles" class="btn-refresh" style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; background: var(--bg-card); border-color: var(--border-color);" title="사업 프로필 관리">
+            <i class="fa-solid fa-folder-gear"></i>
+          </button>
+        </div>
+      </div>
+      <nav class="nav-menu">
+        <button class="nav-item active" id="btn-dashboard" data-tab="dashboard">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>정산 대시보드</span>
+        </button>
+        <button class="nav-item" id="btn-revenue" data-tab="revenue">
+          <i class="fa-solid fa-file-invoice-dollar"></i>
+          <span>세입 산출내역</span>
+        </button>
+        <button class="nav-item" id="btn-expenditure" data-tab="expenditure">
+          <i class="fa-solid fa-receipt"></i>
+          <span>세출 산출내역</span>
+        </button>
+        <button class="nav-item" id="btn-monthly" data-tab="monthly">
+          <i class="fa-solid fa-calendar-days"></i>
+          <span>월별/산출내역별 조회</span>
+        </button>
+        <button class="nav-item" id="btn-transactions" data-tab="transactions">
+          <i class="fa-solid fa-list-check"></i>
+          <span>상세 지출실적</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <span class="dot pulse-green"></span>
+          <span>로컬 데이터 연동 완료</span>
+        </div>
+        <button class="btn-theme-toggle" id="btn-theme-toggle" style="margin-bottom: 8px;">
+          <i class="fa-solid fa-sun"></i>
+          <span>라이트 모드</span>
+        </button>
+        <button class="btn-refresh" id="btn-reload-data">
+          <i class="fa-solid fa-arrows-rotate"></i>
+          데이터 동기화
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top header bar -->
+      <header class="top-header">
+        <div class="header-title">
+          <h1 id="page-title">정산 대시보드</h1>
+          <p id="page-description">2026학년도 세입 대비 세출 현황 및 정산 재원 실시간 분석</p>
+        </div>
+        <div class="header-meta" style="display: flex; align-items: center; gap: 16px; padding: 6px 16px;">
+          <button class="btn-upload-excel" id="btn-open-upload-modal">
+            <i class="fa-solid fa-file-excel"></i> 엑셀 업로드
+          </button>
+          <div class="meta-item" style="display: flex; align-items: center;">
+            <span class="label">기준일자:</span>
+            <span class="value" id="current-date" style="margin-left: 6px;">2026-05-19</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Views -->
+      <div class="content-body">
+        
+        <!-- Tab: Dashboard -->
+        <section class="tab-content active" id="tab-dashboard">
+          <!-- Overview KPI Cards -->
+          <div class="kpi-grid">
+             <div class="kpi-card card-revenue">
+               <div class="kpi-header">
+                 <span>총 세입 (예산현액)</span>
+                 <i class="fa-solid fa-circle-arrow-down icon-rev"></i>
+               </div>
+               <div class="kpi-value" id="kpi-revenue-budget">0원</div>
+               <div class="kpi-footer">
+                 <span class="sub-label">징수결정액: <strong id="kpi-total-revenue" style="font-weight: 600; color: var(--text-main);">0원</strong></span>
+                 <span class="rate-badge bg-green-light text-green" id="kpi-revenue-rate">0%</span>
+               </div>
+             </div>
+
+            <div class="kpi-card card-expenditure">
+              <div class="kpi-header">
+                <span>총 세출 (원인행위액)</span>
+                <i class="fa-solid fa-circle-arrow-up icon-exp"></i>
+              </div>
+              <div class="kpi-value" id="kpi-total-expenditure">0원</div>
+              <div class="kpi-footer">
+                <span class="sub-label">예산현액: <strong id="kpi-expenditure-budget">0원</strong></span>
+                <span class="rate-badge bg-orange-light text-orange" id="kpi-expenditure-rate">0%</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-balance">
+              <div class="kpi-header">
+                <span>예산상 잔액 (세입 - 세출)</span>
+                <i class="fa-solid fa-scale-balanced icon-bal"></i>
+              </div>
+              <div class="kpi-value" id="kpi-budget-balance">0원</div>
+              <div class="kpi-footer">
+                <span class="sub-label">실제 정산 잔액: <strong id="kpi-net-balance" style="font-weight: 600; color: var(--text-main);">0원</strong></span>
+                <span class="rate-badge bg-blue-light text-blue" id="kpi-balance-percent">0% 남음</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dashboard Table (Mapped Revenue vs Expenditure) -->
+          <div class="dashboard-card table-section">
+            <div class="table-header-row">
+              <h3>예산세입세출 연동 정산표</h3>
+              <div class="table-actions">
+                <span class="table-info-badge">세입 항목 기준으로 세출을 매핑한 분석 자료입니다.</span>
+                <div class="col-toggle-container" id="budget-filter-container">
+                  <button class="btn-col-toggle" id="btn-budget-filter">
+                    <i class="fa-solid fa-filter"></i> 반영 예산 설정
+                  </button>
+                  <div class="col-toggle-dropdown" id="budget-filter-dropdown">
+                    <!-- Dynamically populated -->
+                  </div>
+                </div>
+                <button class="btn-settings" id="btn-open-mapping-settings">
+                  <i class="fa-solid fa-gear"></i> 매핑 및 세입 통합 설정
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="dashboard-table" id="dashboard-settlement-table">
+                <colgroup>
+                  <col style="width: 23%;"> <!-- 구분 (세입 항목 기준) -->
+                  <col style="width: 11%;"> <!-- 세입 예산현액 -->
+                  <col style="width: 11%;"> <!-- 세입 징수결정액 -->
+                  <col style="width: 11%;"> <!-- 세출 예산현액 -->
+                  <col style="width: 11%;"> <!-- 세출 원인행위액 -->
+                  <col style="width: 11%;"> <!-- 예산 잔액 -->
+                  <col style="width: 11%;"> <!-- 실제 잔액 -->
+                  <col style="width: 11%;"> <!-- 집행률 -->
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th rowspan="2" style="text-align: left;">구분 (세입 항목 기준)</th>
+                    <th colspan="2" class="text-center bg-revenue-header">세입 (재원 확보)</th>
+                    <th colspan="2" class="text-center bg-expenditure-header">세출 (예산 집행)</th>
+                    <th rowspan="2" class="text-center text-blue">예산 잔액<br><small>(예산 - 원인행위)</small></th>
+                    <th rowspan="2" class="text-center">실제 잔액<br><small>(징수 - 원인행위)</small></th>
+                    <th rowspan="2" class="text-center">집행률</th>
+                  </tr>
+                  <tr>
+                    <th class="text-center bg-revenue-header-sub">예산현액</th>
+                    <th class="text-center bg-revenue-header-sub">징수결정액</th>
+                    <th class="text-center bg-expenditure-header-sub">예산현액</th>
+                    <th class="text-center bg-expenditure-header-sub">원인행위액</th>
+                  </tr>
+                </thead>
+                <tbody id="settlement-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Charts and Summary -->
+          <div class="dashboard-charts-grid">
+            <!-- Left: Comparison Chart -->
+            <div class="dashboard-card chart-container">
+              <h3>세입 vs 세출 항목별 예산현액 대비 실적</h3>
+              <div class="canvas-wrapper">
+                <canvas id="chart-comparison"></canvas>
+              </div>
+            </div>
+            <!-- Right: Breakdown info -->
+            <div class="dashboard-card status-list-container">
+              <h3>주요 재원 집행 상태 요약</h3>
+              <div class="status-progress-list" id="dashboard-progress-list">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: Revenue Details -->
+        <section class="tab-content" id="tab-revenue">
+          <div class="dashboard-card">
+            <div class="table-filter-bar">
+              <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="revenue-search" placeholder="목, 원가통계비목, 산출내역 검색...">
+              </div>
+              <div id="revenue-col-toggle-anchor"></div>
+              <div class="filter-results-info">
+                총 <strong id="revenue-count">0</strong>건의 항목
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="dashboard-table" id="revenue-table" style="table-layout: fixed; width: 100%;">
+                <colgroup>
+                  <col style="width: 18%"><!-- 목 -->
+                  <col style="width: 22%"><!-- 원가통계비목 -->
+                  <col style="width: 28%"><!-- 산출내역 -->
+                  <col style="width: 16%"><!-- 예산현액 -->
+                  <col style="width: 16%"><!-- 징수결정액 -->
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th class="th-interactive" data-col="mok">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">목</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-mok"></div>
+                    </th>
+                    <th class="th-interactive" data-col="accounts">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">원가통계비목</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-accounts"></div>
+                    </th>
+                    <th class="th-interactive col-desc" data-col="desc">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">산출내역</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-desc"></div>
+                    </th>
+                    <th class="th-interactive text-primary-header" data-col="budget">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">예산현액</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-budget"></div>
+                    </th>
+                    <th class="th-interactive text-success-header" data-col="decided">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">징수결정액</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-decided"></div>
+                    </th>
+                    <th class="th-interactive" data-col="received">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">수납액</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-received"></div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="revenue-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: Expenditure Details -->
+        <section class="tab-content" id="tab-expenditure">
+          <div class="dashboard-card">
+            <div class="table-filter-bar">
+              <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="expenditure-search" placeholder="세부항목, 원가통계비목, 산출내역 검색...">
+              </div>
+              <div id="expenditure-col-toggle-anchor"></div>
+              <div class="filter-results-info">
+                총 <strong id="expenditure-count">0</strong>건의 항목
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="dashboard-table" id="expenditure-table">
+                <thead>
+                  <tr>
+                    <th class="th-interactive" data-col="subitem">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">세부항목명</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-subitem"></div>
+                    </th>
+                    <th class="th-interactive" data-col="account">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">원가통계비목명</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-account"></div>
+                    </th>
+                    <th class="th-interactive col-desc" data-col="desc">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">산출내역</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-desc"></div>
+                    </th>
+                    <th class="th-interactive text-primary-header" data-col="budget">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">예산현액(A)</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-budget"></div>
+                    </th>
+                    <th class="th-interactive" data-col="proposed">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">지출품의액</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-proposed"></div>
+                    </th>
+                    <th class="th-interactive text-danger-header" data-col="executed">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">원인행위액(B)</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-executed"></div>
+                    </th>
+                    <th class="th-interactive text-blue" data-col="balance">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">예산잔액(A-B)</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-balance"></div>
+                    </th>
+                    <th class="th-interactive" data-col="paid">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">지급액(C)</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-paid"></div>
+                    </th>
+                    <th class="th-interactive" data-col="paid_balance">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">지출잔액(A-C)</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-paid_balance"></div>
+                    </th>
+                    <th class="th-interactive text-success-header" data-col="funding">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">정산재원</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-exp-funding"></div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="expenditure-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: Monthly & Category Analysis -->
+        <section class="tab-content" id="tab-monthly">
+          <div class="monthly-analysis-layout">
+            <!-- Right Area: Matrix Table, Filter, and Transaction List (single column) -->
+            <div class="analysis-right-panel" style="grid-column: 1 / -1;">
+              <!-- Matrix overview -->
+              <div class="dashboard-card">
+                <div class="card-header-row">
+                  <h3>산출내역별 월 지출 현황</h3>
+                  <div id="monthly-matrix-col-toggle-anchor"></div>
+                </div>
+                <div class="table-responsive">
+                  <table class="dashboard-table text-small" id="monthly-matrix-table">
+                    <thead>
+                    </thead>
+                    <tbody id="monthly-matrix-body">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Transaction list matching the filter -->
+              <div class="dashboard-card" id="analysis-transactions-card">
+                <div class="card-header-row">
+                  <h3 id="analysis-transactions-title">해당 조건 상세 지출 거래 내역</h3>
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <button class="btn-refresh" id="btn-reset-analysis-filter" style="padding: 6px 12px; font-size: 0.8rem; height: auto;">
+                      <i class="fa-solid fa-rotate-left"></i> 전체 보기
+                    </button>
+                    <div id="analysis-transactions-col-toggle-anchor"></div>
+                  </div>
+                </div>
+                <div class="table-responsive">
+                  <table class="dashboard-table text-small" id="analysis-transactions-table">
+                    <thead>
+                      <tr>
+                        <th>일자</th>
+                        <th>결재일자</th>
+                        <th>지출 적요 (제목)</th>
+                        <th>세부항목</th>
+                        <th>산출내역</th>
+                        <th>원가통계목</th>
+                        <th class="text-right text-danger-header">원인행위액</th>
+                      </tr>
+                    </thead>
+                    <tbody id="analysis-transactions-body">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- Tab: Transaction Logs (지출실적조회) -->
+        <section class="tab-content" id="tab-transactions">
+          <div class="dashboard-card">
+            <div class="table-filter-bar">
+              <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="transactions-search" placeholder="지출 적요, 세부항목, 산출내역 검색...">
+              </div>
+              <div class="filter-actions-group">
+                <select id="transactions-filter-month" class="form-select-inline">
+                  <option value="all">전체 월</option>
+                  <option value="03">3월</option>
+                  <option value="04">4월</option>
+                  <option value="05">5월</option>
+                </select>
+                <select id="transactions-filter-category" class="form-select-inline">
+                  <option value="all">전체 산출내역</option>
+                  <!-- Dynamically populated -->
+                </select>
+              </div>
+              <div id="transactions-col-toggle-anchor"></div>
+              <div class="filter-results-info">
+                총 <strong id="transactions-count">0</strong>건의 거래 내역
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="dashboard-table" id="transactions-table" style="table-layout: fixed; width: 100%;">
+                <colgroup>
+                  <col style="width: 9%">   <!-- 결재일자 -->
+                  <col style="width: 34%">  <!-- 지출 적요 (제목) -->
+                  <col style="width: 13%">  <!-- 세부항목 -->
+                  <col style="width: 22%">  <!-- 산출내역 -->
+                  <col style="width: 13%">  <!-- 원가통계목 -->
+                  <col style="width: 9%">   <!-- 원인행위액 -->
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th class="th-interactive" data-col="payDate">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">결재일자</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-tx-payDate"></div>
+                    </th>
+                    <th class="th-interactive" data-col="title">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">지출 적요 (제목)</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-tx-title"></div>
+                    </th>
+                    <th class="th-interactive" data-col="subitem">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">세부항목</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-tx-subitem"></div>
+                    </th>
+                    <th class="th-interactive" data-col="detail">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">산출내역</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-tx-detail"></div>
+                    </th>
+                    <th class="th-interactive" data-col="account">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">원가통계목</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-tx-account"></div>
+                    </th>
+                    <th class="th-interactive text-danger-header" data-col="amt">
+                      <div class="header-container">
+                        <span class="header-filter-btn" title="필터"><i class="fa-solid fa-filter"></i></span>
+                        <span class="header-title">원인행위액</span>
+                        <span class="header-sort-btn" title="정렬"><i class="fa-solid fa-sort"></i></span>
+                      </div>
+                      <div class="header-filter-dropdown" id="filter-dropdown-tx-amt"></div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="transactions-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- MAPPING & REVENUE MERGE SETTINGS MODAL -->
+  <div class="settings-modal" id="mapping-settings-modal">
+    <div class="modal-overlay" id="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-gear"></i> 세입 통합 및 세출 매핑 관리</h2>
+        <button class="btn-close-modal" id="btn-close-mapping-settings">&times;</button>
+      </div>
+      
+      <div class="modal-tabs">
+        <button class="modal-tab-btn active" data-modal-tab="revenue-merge">세입 항목 병합 설정</button>
+        <button class="modal-tab-btn" data-modal-tab="expenditure-linkage">세출 연동 매핑 설정</button>
+      </div>
+      
+      <div class="modal-body-container">
+        <!-- Tab content 1: Revenue Merge -->
+        <div class="modal-tab-content active" id="modal-tab-revenue-merge">
+          <div class="settings-grid">
+            <div class="settings-card">
+              <h3><i class="fa-solid fa-folder-plus"></i> 새 병합 그룹 만들기</h3>
+              <div class="form-group">
+                <label for="new-merge-group-name">병합 그룹 이름</label>
+                <input type="text" id="new-merge-group-name" placeholder="예: 무상급식 지원금 합계">
+              </div>
+              <div class="form-group">
+                <label>병합할 세입 항목 선택 (다중 선택)</label>
+                <div class="checkbox-list" id="unmerged-revenues-list">
+                  <!-- Checkboxes populated by JS -->
+                </div>
+              </div>
+              <button class="btn-primary" id="btn-create-merge-group">
+                <i class="fa-solid fa-plus"></i> 그룹 생성
+              </button>
+            </div>
+            
+            <div class="settings-card">
+              <h3><i class="fa-solid fa-list-check"></i> 현재 구성된 병합 그룹</h3>
+              <div class="groups-list" id="current-merge-groups-list">
+                <!-- List populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tab content 2: Expenditure Linkage -->
+        <div class="modal-tab-content" id="modal-tab-expenditure-linkage">
+          <div class="settings-instruction">
+            세입 항목(또는 세입 병합 그룹)을 기준으로 매핑할 세출 항목(산출내역)을 매핑합니다.<br>
+            매핑되지 않은 세출 항목들은 <strong>'학교자체운영/기타 자체재원'</strong>으로 자동 분류됩니다.
+          </div>
+          <div class="mapping-table-container">
+            <table class="settings-table">
+              <thead>
+                <tr>
+                  <th style="width: 30%;">세입 구분명</th>
+                  <th style="width: 70%;">매핑할 세출 항목 (산출내역) 다중 선택</th>
+                </tr>
+              </thead>
+              <tbody id="mapping-settings-table-body">
+                <!-- Populate by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-reset-mappings"><i class="fa-solid fa-rotate-left"></i> 기본값 복원</button>
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-secondary" id="btn-cancel-mappings">취소</button>
+        <button class="btn-primary" id="btn-save-mappings"><i class="fa-solid fa-floppy-disk"></i> 저장 및 대시보드 적용</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXCEL FILE UPLOAD MODAL -->
+  <div class="settings-modal" id="excel-upload-modal">
+    <div class="modal-overlay" id="upload-modal-overlay"></div>
+    <div class="modal-content upload-modal-content">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-file-excel"></i> 엑셀 데이터 업로드 (드래그 앤 드롭)</h2>
+        <button class="btn-close-modal" id="btn-close-upload-modal">&times;</button>
+      </div>
+      
+      <div class="modal-body-container">
+        <div class="settings-instruction" style="margin-bottom: 20px; line-height: 1.5;">
+          정산 대시보드 분석을 위한 3개 엑셀 파일을 업로드해주세요.<br>
+          각 영역에 파일을 <strong>드래그 앤 드롭</strong>하거나 영역을 클릭하여 파일을 선택할 수 있습니다.
+        </div>
+        
+        <div class="upload-grid">
+          <!-- Dropzone 1: Revenue -->
+          <div class="upload-card" id="dropzone-revenue">
+            <input type="file" id="file-revenue" accept=".xlsx, .xls" style="display: none;">
+            <div class="dropzone-inner">
+              <div class="upload-icon" style="color: var(--color-revenue);"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+              <h3>1. 세입 산출내역</h3>
+              <p class="dropzone-help" style="word-break: keep-all;">(사업관리카드-<span class="help-profile-name">학교급식운영</span>-세입)<br>다운 후 업로드</p>
+              <div class="file-status" id="status-revenue">대기 중</div>
+            </div>
+          </div>
+          
+          <!-- Dropzone 2: Expenditure -->
+          <div class="upload-card" id="dropzone-expenditure">
+            <input type="file" id="file-expenditure" accept=".xlsx, .xls" style="display: none;">
+            <div class="dropzone-inner">
+              <div class="upload-icon" style="color: var(--color-expenditure);"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+              <h3>2. 세출 산출내역</h3>
+              <p class="dropzone-help" style="word-break: keep-all;">(사업관리카드-<span class="help-profile-name">학교급식운영</span>-세출)<br>다운 후 업로드</p>
+              <div class="file-status" id="status-expenditure">대기 중</div>
+            </div>
+          </div>
+          
+          <!-- Dropzone 3: History -->
+          <div class="upload-card" id="dropzone-history">
+            <input type="file" id="file-history" accept=".xlsx, .xls" style="display: none;">
+            <div class="dropzone-inner">
+              <div class="upload-icon" style="color: var(--color-balance);"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+              <h3>3. 지출실적조회</h3>
+              <p class="dropzone-help" style="word-break: keep-all; font-size: 0.72rem; line-height: 1.4;">(지출관리-지출장부-지출현황-<br>지출실적조회-일자(0301~현재일)-<br>원인행위탭-조회) 다운 후 업로드</p>
+              <div class="file-status" id="status-history">대기 중</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer" style="margin-top: 24px;">
+        <span class="upload-summary-info" id="upload-summary-text">
+          <i class="fa-solid fa-circle-info"></i> 세입, 세출, 지출실적 파일이 모두 업로드되어야 적용 가능합니다.
+        </span>
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-secondary" id="btn-cancel-upload">취소</button>
+        <button class="btn-primary" id="btn-apply-uploaded-data" disabled style="opacity: 0.5; cursor: not-allowed;">
+          <i class="fa-solid fa-circle-check"></i> 데이터 적용하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE MANAGEMENT MODAL -->
+  <div class="settings-modal" id="profile-management-modal">
+    <div class="modal-overlay" id="profile-modal-overlay"></div>
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-folder-gear"></i> 사업 프로필 관리</h2>
+        <button class="btn-close-modal" id="btn-close-profile-modal">&times;</button>
+      </div>
+      <div class="modal-body-container" style="padding: 20px;">
+        <div class="settings-card" style="margin-bottom: 16px; border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; background: var(--bg-card);">
+          <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 600;"><i class="fa-solid fa-plus" style="margin-right: 6px; color: var(--primary-color);"></i> 새 사업 프로필 추가</h3>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <input type="text" id="new-profile-name" placeholder="예: 방과후학교운영" style="flex-grow: 1; height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-body); color: var(--text-main); font-family: inherit; font-size: 0.85rem; outline: none;">
+            <button class="btn-primary" id="btn-create-profile" style="height: 36px; white-space: nowrap; padding: 0 16px; border-radius: 6px; font-weight: 500;">추가</button>
+          </div>
+        </div>
+        <div class="settings-card" style="border: 1px solid var(--border-color); padding: 16px; border-radius: 8px; background: var(--bg-card);">
+          <h3 style="margin-top: 0; font-size: 0.95rem; font-weight: 600;"><i class="fa-solid fa-list" style="margin-right: 6px; color: var(--primary-color);"></i> 등록된 프로필 목록</h3>
+          <div id="profile-list-container" style="margin-top: 10px; max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+        <button class="btn-secondary" id="btn-close-profile-modal-footer" style="border-radius: 6px;">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
