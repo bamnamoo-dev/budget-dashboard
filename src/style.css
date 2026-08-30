@@ -2637,6 +2637,22 @@ body {
 /* -------------------------------------------------------------
    EXCEL EXPORT & DRILLDOWN & EMPTY STATE STYLES
    ------------------------------------------------------------- */
+.table-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .btn-export-excel {
   display: inline-flex;
   align-items: center;

@@ -299,6 +299,16 @@ async function init() {
       setupBackupAndRestore(); // Full Backup & Restore Setup
       setupDrilldownModal(); // Drilldown Modal Setup
 
+      // Excel Export Handlers (Top Header & Settlement Table)
+      const btnHeaderExport = document.getElementById('btn-header-export-excel');
+      if (btnHeaderExport) {
+        btnHeaderExport.addEventListener('click', exportSettlementToExcel);
+      }
+      const btnExportSettlement = document.getElementById('btn-export-settlement-excel');
+      if (btnExportSettlement) {
+        btnExportSettlement.addEventListener('click', exportSettlementToExcel);
+      }
+
       // Print Handlers
       const btnPrintReport = document.getElementById('btn-print-report');
       if (btnPrintReport) {
