@@ -1,4 +1,4 @@
-﻿// State Variables
+// State Variables
 let appData = {
   revenue: [],
   expenditure: [],
@@ -293,8 +293,17 @@ async function init() {
       setupColumnToggles();
       setupMappingSettings();
       setupExcelUpload();
+      setupUserManual();
       setupTheme();
       setupProfileManagement(); // New function for profile selectors
+      setupBackupAndRestore(); // Full Backup & Restore Setup
+      setupDrilldownModal(); // Drilldown Modal Setup
+
+      // Excel Export Button for Settlement Overview
+      const btnExportSettlement = document.getElementById('btn-export-settlement-excel');
+      if (btnExportSettlement) {
+        btnExportSettlement.addEventListener('click', exportSettlementToExcel);
+      }
       
       // Setup reload handler
       document.getElementById('btn-reload-data').addEventListener('click', async () => {
@@ -1692,7 +1701,7 @@ function renderExpenditureTable() {
       tr.innerHTML = `
         ${subitemTd}
         <td>${accountName || ''}</td>
-        <td class="col-desc">${desc || ''}</td>
+        <td class="col-desc">${desc ? `<a class="drilldown-link" onclick="openDrilldownModal('${desc.replace(/'/g, "\\'")}')" title="지출 상세 원장 보기">${desc}</a>` : '-'}</td>
         <td class="text-right">${r.Col_6 ? formatCurrency(r.Col_6) : '-'}</td>
         <td class="text-right text-warning-header">${r.Col_7 ? formatCurrency(r.Col_7) : '-'}</td>
         <td class="text-right text-danger-header">${r.Col_8 ? formatCurrency(r.Col_8) : '-'}</td>
@@ -1857,7 +1866,7 @@ function renderExpenditureTable() {
     tr.innerHTML = `
       ${subitemTd}
       <td>${accountName || ''}</td>
-      <td class="col-desc">${desc || ''}</td>
+      <td class="col-desc">${desc ? `<a class="drilldown-link" onclick="openDrilldownModal('${desc.replace(/'/g, "\\'")}')" title="지출 상세 원장 보기">${desc}</a>` : '-'}</td>
       <td class="text-right">${r.Col_6 ? formatCurrency(r.Col_6) : '-'}</td>
       <td class="text-right text-warning-header">${r.Col_7 ? formatCurrency(r.Col_7) : '-'}</td>
       <td class="text-right text-danger-header">${r.Col_8 ? formatCurrency(r.Col_8) : '-'}</td>
@@ -2636,6 +2645,10 @@ function renderTransactionsTable() {
   }
 
   document.getElementById('transactions-count').innerText = count;
+  const totalAmountEl = document.getElementById('transactions-total-amount');
+  if (totalAmountEl) {
+    totalAmountEl.innerText = formatCurrency(totalAmt);
+  }
 }
 
 // -------------------------------------------------------------
@@ -3245,6 +3258,283 @@ function setupMappingSettings() {
   btnCreateGroup.addEventListener('click', () => {
     createMergeGroup();
   });
+}
+
+// -------------------------------------------------------------
+// USER MANUAL MODAL LOGIC
+// -------------------------------------------------------------
+function setupUserManual() {
+  const modal = document.getElementById('user-manual-modal');
+  const btnOpen = document.getElementById('btn-open-manual');
+  const btnClose = document.getElementById('btn-close-manual-modal');
+  const btnCloseFooter = document.getElementById('btn-close-manual-modal-footer');
+  const overlay = document.getElementById('manual-modal-overlay');
+  const tabBtns = document.querySelectorAll('.manual-tab-btn');
+  const tabPanes = document.querySelectorAll('.manual-tab-pane');
+
+  if (!modal || !btnOpen) return;
+
+  const openModal = () => {
+    modal.classList.add('active');
+  };
+
+  const closeModal = () => {
+    modal.classList.remove('active');
+  };
+
+  btnOpen.addEventListener('click', openModal);
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnCloseFooter) btnCloseFooter.addEventListener('click', closeModal);
+  if (overlay) overlay.addEventListener('click', closeModal);
+
+  // Tab switching logic
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.getAttribute('data-manual-tab');
+      
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabPanes.forEach(p => p.classList.remove('active'));
+
+      btn.classList.add('active');
+      const targetPane = document.getElementById(`manual-pane-${targetTab}`);
+      if (targetPane) {
+        targetPane.classList.add('active');
+      }
+    });
+  });
+}
+
+// -------------------------------------------------------------
+// DYNAMIC ACADEMIC YEAR HELPER
+// -------------------------------------------------------------
+function getDynamicAcademicYear() {
+  let refDateStr = '';
+  if (appData.history && appData.history.length > 0) {
+    for (let i = 0; i < appData.history.length; i++) {
+      const d = appData.history[i].일자 || appData.history[i].결재일자 || '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+        refDateStr = d.trim();
+        break;
+      }
+    }
+  }
+
+  if (!refDateStr) {
+    const curDateEl = document.getElementById('current-date');
+    if (curDateEl && /^\d{4}-\d{2}-\d{2}$/.test(curDateEl.innerText.trim())) {
+      refDateStr = curDateEl.innerText.trim();
+    }
+  }
+
+  if (refDateStr) {
+    const parts = refDateStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    // 학교회계 학년도: 3월 ~ 익년 2월
+    return month < 3 ? String(year - 1) : String(year);
+  }
+  return '2026';
+}
+
+// -------------------------------------------------------------
+// EXCEL EXPORT FOR SETTLEMENT OVERVIEW
+// -------------------------------------------------------------
+function exportSettlementToExcel() {
+  if (!dashboardMappedData || dashboardMappedData.length === 0) {
+    alert('다운로드할 정산 데이터가 없습니다.');
+    return;
+  }
+
+  const profileName = appState.activeProfile;
+  const academicYear = getDynamicAcademicYear();
+  const refDate = document.getElementById('current-date')?.innerText || '';
+  
+  const wsData = [
+    [`${academicYear}학년도 [${profileName}] 예산 정산 총괄표`],
+    [`정산 기준일자: ${refDate}`],
+    [],
+    [
+      '구분 (세입 항목 기준)',
+      '세입 예산현액 (A)',
+      '세입 징수결정액 (B)',
+      '세출 예산현액 (C)',
+      '세출 원인행위액 (D)',
+      '예산상 잔액 (A-D)',
+      '실제 정산 잔액 (B-D)',
+      '집행률'
+    ]
+  ];
+
+  let sumRevBudget = 0;
+  let sumRevDecided = 0;
+  let sumExpBudget = 0;
+  let sumExpExecuted = 0;
+  let sumBudgetBal = 0;
+  let sumActualBal = 0;
+
+  dashboardMappedData.forEach(row => {
+    const budgetBal = row.expBudget - row.expExecuted;
+    const rate = row.expBudget ? ((row.expExecuted / row.expBudget) * 100).toFixed(1) + '%' : '-';
+    
+    sumRevBudget += row.revBudget || 0;
+    sumRevDecided += row.revDecided || 0;
+    sumExpBudget += row.expBudget || 0;
+    sumExpExecuted += row.expExecuted || 0;
+    sumBudgetBal += budgetBal;
+    sumActualBal += row.actualBal || 0;
+
+    wsData.push([
+      row.name,
+      row.revBudget || 0,
+      row.revDecided || 0,
+      row.expBudget || 0,
+      row.expExecuted || 0,
+      budgetBal,
+      row.actualBal || 0,
+      rate
+    ]);
+  });
+
+  const totalRate = sumExpBudget ? ((sumExpExecuted / sumExpBudget) * 100).toFixed(1) + '%' : '-';
+  wsData.push([
+    '합계 (총계)',
+    sumRevBudget,
+    sumRevDecided,
+    sumExpBudget,
+    sumExpExecuted,
+    sumBudgetBal,
+    sumActualBal,
+    totalRate
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '정산총괄표');
+
+  const fileName = `${academicYear}학년도_${profileName}_예산정산총괄표.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}
+
+// -------------------------------------------------------------
+// FULL PROFILE BACKUP & RESTORE
+// -------------------------------------------------------------
+function setupBackupAndRestore() {
+  const btnExport = document.getElementById('btn-export-all-backup');
+  const btnImport = document.getElementById('btn-import-all-backup');
+  const fileInput = document.getElementById('file-import-backup');
+
+  if (btnExport) {
+    btnExport.addEventListener('click', () => {
+      saveState();
+      const stateStr = JSON.stringify(appState, null, 2);
+      const blob = new Blob([stateStr], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `K-Edu_예산정산_전체백업_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  if (btnImport && fileInput) {
+    btnImport.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (!parsed.profiles || typeof parsed.profiles !== 'object') {
+            throw new Error('올바른 예산정산 백업 파일 형식이 아닙니다.');
+          }
+
+          if (confirm('백업 파일을 불러오면 현재 등록된 모든 사업 프로필과 장부 데이터가 덮어씌워집니다. 계속 진행하시겠습니까?')) {
+            appState = parsed;
+            syncCurrentProfileRefs();
+            saveState();
+            renderProfileSelectOptions();
+            renderProfileList();
+            selectProfile(appState.activeProfile || Object.keys(appState.profiles)[0]);
+            alert('전체 사업 프로필 및 정산 데이터가 성공적으로 복원되었습니다.');
+          }
+        } catch (err) {
+          alert('백업 파일 복원 실패: ' + err.message);
+        } finally {
+          fileInput.value = '';
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+}
+
+// -------------------------------------------------------------
+// TRANSACTION DRILLDOWN MODAL
+// -------------------------------------------------------------
+window.openDrilldownModal = function(expName) {
+  if (!expName) return;
+  const modal = document.getElementById('transaction-drilldown-modal');
+  const titleEl = document.getElementById('drilldown-category-name');
+  const countEl = document.getElementById('drilldown-total-count');
+  const amountEl = document.getElementById('drilldown-total-amount');
+  const tbody = document.getElementById('drilldown-table-body');
+
+  if (!modal || !tbody) return;
+
+  const targetRows = (appData.history || []).filter(t => {
+    const detail = (t.산출내역 || '').trim();
+    const subitem = (t.세부항목 || '').trim();
+    return detail === expName.trim() || subitem === expName.trim();
+  });
+
+  titleEl.innerText = expName;
+  countEl.innerText = `${targetRows.length}건`;
+
+  let sum = 0;
+  tbody.innerHTML = '';
+
+  if (targetRows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding: 24px;">매칭된 상세 지출 거래 내역이 없습니다.</td></tr>`;
+  } else {
+    targetRows.forEach(t => {
+      const amt = parseFloat(t.원인행위액) || 0;
+      sum += amt;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${t.결재일자 || t.일자 || '-'}</td>
+        <td style="text-align: left;"><strong>${t.제목 || t.적요 || '-'}</strong></td>
+        <td style="text-align: left;">${t.세부항목 || '-'}</td>
+        <td style="text-align: left;">${t.원가통계비목 || t.원가통계목 || '-'}</td>
+        <td class="text-right text-danger-header">${formatCurrency(amt)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  amountEl.innerText = formatCurrency(sum);
+  modal.classList.add('active');
+};
+
+function setupDrilldownModal() {
+  const modal = document.getElementById('transaction-drilldown-modal');
+  const btnClose = document.getElementById('btn-close-drilldown-modal');
+  const btnCloseFooter = document.getElementById('btn-close-drilldown-modal-footer');
+  const overlay = document.getElementById('drilldown-modal-overlay');
+
+  if (!modal) return;
+  const closeModal = () => modal.classList.remove('active');
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  if (btnCloseFooter) btnCloseFooter.addEventListener('click', closeModal);
+  if (overlay) overlay.addEventListener('click', closeModal);
 }
 
 // -------------------------------------------------------------
@@ -3941,17 +4231,27 @@ function selectProfile(profileName) {
 
 function updateDynamicTexts() {
   const profileName = appState.activeProfile;
+  const academicYear = getDynamicAcademicYear();
   
-  // Update header text if we are on dashboard tab
+  // 1. Update document title
+  document.title = `${academicYear}학년도 [${profileName}] 예산정산 대시보드`;
+
+  // 2. Update sidebar sub year
+  const subYearEl = document.getElementById('sidebar-sub-year');
+  if (subYearEl) {
+    subYearEl.innerText = `K-Edu Budget ${academicYear}`;
+  }
+
+  // 3. Update header text if we are on dashboard tab
   const activeTab = document.querySelector('.nav-item.active');
   const pageDesc = document.getElementById('page-description');
   if (pageDesc) {
     if (!activeTab || activeTab.dataset.tab === 'dashboard') {
-      pageDesc.innerText = `2026학년도 [${profileName}] 세입 대비 세출 현황 및 정산 재원 실시간 분석`;
+      pageDesc.innerText = `${academicYear}학년도 [${profileName}] 세입 대비 세출 현황 및 정산 재원 실시간 분석`;
     }
   }
 
-  // Update Excel Upload Help Placeholders
+  // 4. Update Excel Upload Help Placeholders
   const placeholders = document.querySelectorAll('.help-profile-name');
   placeholders.forEach(el => {
     el.innerText = profileName;

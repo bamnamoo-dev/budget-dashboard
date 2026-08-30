@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 dist/
 build/
 release/
@@ -6,3 +6,5 @@ __pycache__/
 *.exe
 *.spec
 *.py
+dashboard_state.json
+scratch/
