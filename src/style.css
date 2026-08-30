@@ -2837,14 +2837,44 @@ body {
   line-height: 1.5;
 }
 
-/* Print Overrides: Clean Black & White Report */
+/* -------------------------------------------------------------
+   PRINT OVERRIDES: OFFICIAL A4 LANDSCAPE DOCUMENT STYLE
+   ------------------------------------------------------------- */
+@page {
+  size: landscape;
+  margin: 10mm 10mm 10mm 10mm;
+}
+
 @media print {
-  body {
+  html, body {
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #111827 !important;
+    font-size: 10.5pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  .sidebar, .top-header, .table-actions, .table-filter-bar, .btn-refresh, .btn-col-toggle, .btn-settings, .btn-export-excel, .btn-manual, .btn-upload-excel {
+  .app-container {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .sidebar,
+  .btn-refresh,
+  .btn-print,
+  .btn-print-outline,
+  .btn-manual,
+  .btn-upload-excel,
+  .btn-export-excel,
+  .btn-col-toggle,
+  .btn-settings,
+  .table-actions,
+  .table-filter-bar,
+  .modal-container,
+  .modal-overlay,
+  .settings-modal,
+  .user-manual-modal,
+  .excel-upload-modal {
     display: none !important;
   }
 
@@ -2852,22 +2882,170 @@ body {
     margin-left: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .top-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: flex-end !important;
+    border-bottom: 2px solid #111827 !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .top-header .header-title h1 {
+    font-size: 1.35rem !important;
+    color: #111827 !important;
+    margin: 0 0 4px 0 !important;
+    font-weight: 800 !important;
+  }
+
+  .top-header .header-title p {
+    font-size: 0.85rem !important;
+    color: #4b5563 !important;
+    margin: 0 !important;
+  }
+
+  .header-meta {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+
+  .header-meta .meta-item {
+    font-size: 0.85rem !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+  }
+
+  /* KPI Summary Cards: 1 Row 3 Columns */
+  .metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 12px !important;
+    margin-bottom: 14px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .metric-card {
+    background: #ffffff !important;
+    border: 1.5px solid #d1d5db !important;
+    border-radius: 6px !important;
+    padding: 10px 14px !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .metric-card .metric-header span {
+    font-size: 0.78rem !important;
+    color: #4b5563 !important;
+    font-weight: 600 !important;
+  }
+
+  .metric-card .metric-value {
+    font-size: 1.25rem !important;
+    font-weight: 800 !important;
+    color: #111827 !important;
+    margin: 4px 0 6px 0 !important;
+  }
+
+  .metric-card .metric-footer {
+    font-size: 0.74rem !important;
+    color: #6b7280 !important;
+    border-top: 1px solid #f3f4f6 !important;
+    padding-top: 4px !important;
+  }
+
+  /* Table Section: Clean High-Contrast */
+  .dashboard-card.table-section {
+    background: #ffffff !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    margin-bottom: 14px !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .table-header-row {
+    margin-bottom: 6px !important;
+  }
+
+  .table-header-row h3 {
+    font-size: 1.05rem !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+  }
+
+  .table-responsive {
+    overflow: visible !important;
   }
 
   .dashboard-table {
-    border: 1px solid #333 !important;
-    color: #000 !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1.5px solid #111827 !important;
+    font-size: 8.5pt !important;
+    background: #ffffff !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
-  .dashboard-table th, .dashboard-table td {
-    border: 1px solid #666 !important;
-    color: #000 !important;
-    background: transparent !important;
+  .dashboard-table th,
+  .dashboard-table td {
+    border: 1px solid #9ca3af !important;
+    padding: 5px 6px !important;
+    color: #111827 !important;
+    background: #ffffff !important;
   }
 
   .dashboard-table thead th {
     background-color: #f3f4f6 !important;
-    color: #000 !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+    border-bottom: 1.5px solid #111827 !important;
+  }
+
+  .dashboard-table thead th.th-revenue-group {
+    background-color: #ecfdf5 !important;
+    color: #065f46 !important;
+  }
+
+  .dashboard-table thead th.th-expenditure-group {
+    background-color: #fff1f2 !important;
+    color: #9f1239 !important;
+  }
+
+  .dashboard-table thead th.th-balance-budget {
+    background-color: #eff6ff !important;
+    color: #1e40af !important;
+  }
+
+  .dashboard-table thead th.th-balance-actual {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+  }
+
+  .dashboard-table tfoot td,
+  .dashboard-table .row-total td {
+    background-color: #f3f4f6 !important;
+    font-weight: 700 !important;
+    border-top: 2px solid #111827 !important;
+  }
+
+  .text-success-header, .text-green { color: #047857 !important; }
+  .text-danger-header, .text-orange { color: #b91c1c !important; }
+  .text-primary-header, .text-blue { color: #1d4ed8 !important; }
+
+  /* Charts Section: Avoid Breaking */
+  .charts-grid,
+  .monthly-analysis-layout {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-top: 14px !important;
   }
 }
 
