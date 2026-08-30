@@ -3040,8 +3040,65 @@ body {
   .text-danger-header, .text-orange { color: #b91c1c !important; }
   .text-primary-header, .text-blue { color: #1d4ed8 !important; }
 
-  /* Charts Section: Avoid Breaking */
-  .charts-grid,
+  /* ── 2페이지: 차트 및 시각화 분석 보고서 (Page Break) ── */
+  .dashboard-charts-grid {
+    break-before: page !important;
+    page-break-before: always !important;
+    display: grid !important;
+    grid-template-columns: 1.4fr 1fr !important;
+    gap: 16px !important;
+    margin-top: 0 !important;
+    padding-top: 8px !important;
+    width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .dashboard-card.chart-container,
+  .dashboard-card.status-list-container {
+    background: #ffffff !important;
+    border: 1.5px solid #d1d5db !important;
+    border-radius: 6px !important;
+    padding: 14px 16px !important;
+    box-shadow: none !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .dashboard-card.chart-container h3,
+  .dashboard-card.status-list-container h3 {
+    font-size: 1.05rem !important;
+    color: #111827 !important;
+    font-weight: 700 !important;
+    border-bottom: 1.5px solid #e5e7eb !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .canvas-wrapper {
+    height: 340px !important;
+    width: 100% !important;
+  }
+
+  .canvas-wrapper canvas {
+    max-height: 340px !important;
+    width: 100% !important;
+  }
+
+  .status-progress-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .status-progress-item {
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 6px !important;
+    padding: 10px 12px !important;
+  }
+
+  /* 월별 분석 탭 등 기타 탭 인쇄 시 페이지 나눔 보호 */
   .monthly-analysis-layout {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
