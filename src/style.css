@@ -2241,6 +2241,18 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
+[data-theme="light"] .btn-print-outline {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme="light"] .btn-print-outline:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
 .btn-manual {
   display: inline-flex;
   align-items: center;
@@ -2637,6 +2649,7 @@ body {
 /* -------------------------------------------------------------
    EXCEL EXPORT & DRILLDOWN & EMPTY STATE STYLES
    ------------------------------------------------------------- */
+/* Table Header Row & Action Bar Layout */
 .table-header-row {
   display: flex;
   justify-content: space-between;
@@ -2651,6 +2664,94 @@ body {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.table-info-badge {
+  font-size: 0.76rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+[data-theme="light"] .table-info-badge {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+  font-weight: 600;
+}
+
+.btn-col-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-col-toggle:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+[data-theme="light"] .btn-col-toggle {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #4338ca;
+}
+
+[data-theme="light"] .btn-col-toggle:hover {
+  background: #4338ca;
+  border-color: #4338ca;
+  color: #ffffff;
+}
+
+.btn-settings {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-settings:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--primary-color);
+  color: #fff;
+}
+
+[data-theme="light"] .btn-settings {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+[data-theme="light"] .btn-settings:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
 }
 
 .btn-export-excel {
