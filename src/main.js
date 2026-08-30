@@ -299,10 +299,14 @@ async function init() {
       setupBackupAndRestore(); // Full Backup & Restore Setup
       setupDrilldownModal(); // Drilldown Modal Setup
 
-      // Excel Export Button for Settlement Overview
-      const btnExportSettlement = document.getElementById('btn-export-settlement-excel');
-      if (btnExportSettlement) {
-        btnExportSettlement.addEventListener('click', exportSettlementToExcel);
+      // Print Handlers
+      const btnPrintReport = document.getElementById('btn-print-report');
+      if (btnPrintReport) {
+        btnPrintReport.addEventListener('click', () => window.print());
+      }
+      const btnPrintSettlement = document.getElementById('btn-print-settlement');
+      if (btnPrintSettlement) {
+        btnPrintSettlement.addEventListener('click', () => window.print());
       }
       
       // Setup reload handler
