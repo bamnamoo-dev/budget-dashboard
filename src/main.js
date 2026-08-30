@@ -83,12 +83,12 @@ function loadState() {
         return;
       }
     }
-    
+
     // Fallback: Check old individual localStorage keys for migration
     const savedMerges = localStorage.getItem('k_budget_merged_revenues');
     const savedMappings = localStorage.getItem('k_budget_linkage_mappings');
     const savedUploadedData = localStorage.getItem('k_budget_uploaded_data');
-    
+
     if (savedMerges || savedMappings || savedUploadedData) {
       appState.activeProfile = '학교급식운영';
       appState.profiles = {
@@ -102,7 +102,7 @@ function loadState() {
       console.log('Migrated old individual state key configs to new profiles structure');
       return;
     }
-    
+
     // Default initialization
     appState.activeProfile = '학교급식운영';
     appState.profiles = {
@@ -121,7 +121,7 @@ function loadState() {
 
 function saveState() {
   const theme = document.documentElement.getAttribute('data-theme') || 'dark';
-  
+
   // Ensure the active profile is fully updated before saving
   if (appState.profiles[appState.activeProfile]) {
     appState.profiles[appState.activeProfile].uploadedData = {
@@ -181,7 +181,7 @@ async function init() {
   try {
     let isStateLoadedFromServer = false;
     let isUploadedDataUsed = false;
-    
+
     // 1. Try to load state from server API
     try {
       const response = await fetch('/api/load_state');
@@ -190,7 +190,7 @@ async function init() {
         if (state && Object.keys(state).length > 0) {
           isStateLoadedFromServer = true;
           console.log('Successfully loaded state from server API');
-          
+
           if (state.profiles) {
             appState = state;
           } else {
@@ -205,7 +205,7 @@ async function init() {
             };
           }
           syncCurrentProfileRefs();
-          
+
           if (state.theme) {
             document.documentElement.setAttribute('data-theme', state.theme);
             const btnTheme = document.getElementById('btn-theme-toggle');
@@ -217,7 +217,7 @@ async function init() {
               }
             }
           }
-          
+
           const currentProfile = appState.profiles[appState.activeProfile];
           if (currentProfile && currentProfile.uploadedData && currentProfile.uploadedData.revenue && currentProfile.uploadedData.revenue.length > 0) {
             appData.revenue = currentProfile.uploadedData.revenue;
@@ -235,11 +235,11 @@ async function init() {
     } catch (serverLoadError) {
       console.error('Failed to load state from server API:', serverLoadError);
     }
-    
+
     // 2. Fallback to localStorage if server state could not be loaded
     if (!isStateLoadedFromServer) {
       loadState();
-      
+
       const currentProfile = appState.profiles[appState.activeProfile];
       if (currentProfile && currentProfile.uploadedData && currentProfile.uploadedData.revenue && currentProfile.uploadedData.revenue.length > 0) {
         appData.revenue = currentProfile.uploadedData.revenue;
@@ -253,7 +253,7 @@ async function init() {
         });
       }
     }
-    
+
     // 3. Fallback to data.json if no uploaded data is loaded (default school meal sample)
     if (!isUploadedDataUsed) {
       try {
@@ -263,7 +263,7 @@ async function init() {
           appData.revenue = data.revenue ? data.revenue.slice(1) : [];
           appData.expenditure = data.expenditure ? data.expenditure.slice(1) : [];
           appData.history = data.history ? data.history.slice(1) : [];
-          
+
           if (appState.profiles['학교급식운영']) {
             appState.profiles['학교급식운영'].uploadedData = {
               revenue: appData.revenue,
@@ -277,7 +277,7 @@ async function init() {
         console.warn('Fallback: data.json could not be loaded', err);
       }
     }
-    
+
     // Sort transactions by date descending
     appData.history.sort((a, b) => {
       return (b.일자 || '').localeCompare(a.일자 || '');
@@ -318,12 +318,16 @@ async function init() {
       if (btnPrintSettlement) {
         btnPrintSettlement.addEventListener('click', () => window.print());
       }
-      
-      // Setup reload handler
+
+      // Setup reload (reset) handler
       document.getElementById('btn-reload-data').addEventListener('click', async () => {
+        const profileName = appState.activeProfile;
+        const isConfirm = confirm(`현재 선택된 [${profileName}] 사업의 데이터를 초기화하시겠습니까?\n\n(업로드된 엑셀 데이터가 삭제되고 초기 상태로 리셋됩니다.)`);
+        if (!isConfirm) return;
+
         const btn = document.getElementById('btn-reload-data');
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 동기화 중...';
-        
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 초기화 중...';
+
         // Reset local storage configs for active profile
         if (appState.profiles[appState.activeProfile]) {
           appState.profiles[appState.activeProfile].uploadedData = { revenue: [], expenditure: [], history: [] };
@@ -335,27 +339,27 @@ async function init() {
             appState.profiles[appState.activeProfile].mergedRevenues = {};
           }
         }
-        
+
         appData.revenue = [];
         appData.expenditure = [];
         appData.history = [];
-        
+
         saveState();
-        
+
         await init();
-        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> 데이터 동기화';
-        alert('현재 프로필 데이터가 초기화되었거나 샘플 데이터로 동기화되었습니다.');
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> 데이터 초기화';
+        alert(`[${profileName}] 사업 데이터가 성공적으로 초기화되었습니다.`);
       });
-      
+
       setupHeartbeat();
-      
+
       isInitialized = true;
     }
 
     updateDynamicTexts();
     renderBudgetFilterDropdown();
     renderAll();
-    
+
     // Update indicator in Sidebar
     const statusText = document.querySelector('.status-indicator span:last-child');
     if (statusText) {
@@ -371,7 +375,7 @@ async function init() {
 function setupHeartbeat() {
   // 3초마다 백엔드 서버에 핑 전송 (자가 종료 확인용)
   setInterval(() => {
-    fetch('/api/heartbeat').catch(() => {});
+    fetch('/api/heartbeat').catch(() => { });
   }, 3000);
 }
 
@@ -383,7 +387,7 @@ function setupTabs() {
       // Remove active class from all
       navItems.forEach(i => i.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-      
+
       // Add active class to current
       item.classList.add('active');
       const tabId = `tab-${item.dataset.tab}`;
@@ -395,8 +399,8 @@ function setupTabs() {
       // Update titles
       const pageTitle = document.getElementById('page-title');
       const pageDesc = document.getElementById('page-description');
-      
-      switch(item.dataset.tab) {
+
+      switch (item.dataset.tab) {
         case 'dashboard':
           pageTitle.innerText = '정산 대시보드';
           pageDesc.innerText = '2026학년도 세입 대비 세출 현황 및 정산 재원 실시간 분석';
@@ -429,10 +433,10 @@ function setupTabs() {
 function setupFilters() {
   // Revenue search
   document.getElementById('revenue-search').addEventListener('input', renderRevenueTable);
-  
+
   // Expenditure search
   document.getElementById('expenditure-search').addEventListener('input', renderExpenditureTable);
-  
+
   // Transactions search & filters
   document.getElementById('transactions-search').addEventListener('input', renderTransactionsTable);
   document.getElementById('transactions-filter-month').addEventListener('change', renderTransactionsTable);
@@ -502,12 +506,12 @@ function isRevenueTotalOrSubtotal(row) {
   const col1 = row.Col_1 || '';
   const col2 = row.Col_2 || '';
   const mainCol = getMok(row);
-  
+
   return /\[\s*소\s*계\s*\]/.test(col1) ||
-         /\[\s*소\s*계\s*\]/.test(col2) ||
-         /\[\s*총\s*계\s*\]/.test(mainCol) ||
-         /\[\s*총\s*계\s*\]/.test(col1) ||
-         col2 === '산출내역';
+    /\[\s*소\s*계\s*\]/.test(col2) ||
+    /\[\s*총\s*계\s*\]/.test(mainCol) ||
+    /\[\s*총\s*계\s*\]/.test(col1) ||
+    col2 === '산출내역';
 }
 
 function isExpenditureTotalOrSubtotal(row) {
@@ -515,12 +519,12 @@ function isExpenditureTotalOrSubtotal(row) {
   const col2 = row.Col_2 || '';
   const col3 = row.Col_3 || '';
   const mainCol = getMok(row);
-  
+
   return /\[\s*소\s*계\s*\]/.test(col1) ||
-         /\[\s*소\s*계\s*\]/.test(col2) ||
-         /\[\s*총\s*계\s*\]/.test(mainCol) ||
-         /\[\s*총\s*계\s*\]/.test(col1) ||
-         col3 === '산출내역';
+    /\[\s*소\s*계\s*\]/.test(col2) ||
+    /\[\s*총\s*계\s*\]/.test(mainCol) ||
+    /\[\s*총\s*계\s*\]/.test(col1) ||
+    col3 === '산출내역';
 }
 
 // KPI Calculation
@@ -528,7 +532,7 @@ let kpiCached = {};
 function calculateKPIs() {
   const deactivatedRevenues = new Set();
   const deactivatedExpenditures = new Set();
-  
+
   appState.linkageMappings.forEach(mapDef => {
     if (mapDef.isActive === false) {
       const resolvedRevNames = resolveRevenueNames(mapDef.revenueNames || []);
@@ -540,7 +544,7 @@ function calculateKPIs() {
   // 1. Revenue
   let totalRevenueBudget = 0;
   let totalRevenueDecided = 0;
-  
+
   appData.revenue.forEach(row => {
     const isTotalOrSubtotal = isRevenueTotalOrSubtotal(row);
     if (!isTotalOrSubtotal && row.Col_3) {
@@ -562,7 +566,7 @@ function calculateKPIs() {
       }
     });
   });
-  
+
   appData.expenditure.forEach(row => {
     const isTotalOrSubtotal = isExpenditureTotalOrSubtotal(row);
     if (!isTotalOrSubtotal && row.Col_6) {
@@ -576,7 +580,7 @@ function calculateKPIs() {
   // Actual Balance (Revenue Decided - Expenditure Executed)
   const actualBalance = totalRevenueDecided - totalExpenditureExecuted;
   const budgetBalance = totalRevenueBudget - totalExpenditureExecuted;
-  
+
   kpiCached = {
     totalRevenueBudget,
     totalRevenueDecided,
@@ -597,7 +601,7 @@ function calculateKPIs() {
 
   document.getElementById('kpi-net-balance').innerText = formatCurrency(actualBalance);
   document.getElementById('kpi-budget-balance').innerText = formatCurrency(budgetBalance);
-  
+
   // Since the main value is now budget balance, we calculate the remaining budget percentage
   const balancePercent = totalRevenueBudget ? ((budgetBalance / totalRevenueBudget) * 100).toFixed(1) : 0;
   document.getElementById('kpi-balance-percent').innerText = `${balancePercent}% 잔여`;
@@ -660,7 +664,7 @@ function setupBudgetFilter() {
   const btn = document.getElementById('btn-budget-filter');
   const dropdown = document.getElementById('budget-filter-dropdown');
   if (!btn || !dropdown) return;
-  
+
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     document.querySelectorAll('.col-toggle-dropdown').forEach(d => {
@@ -668,7 +672,7 @@ function setupBudgetFilter() {
     });
     dropdown.classList.toggle('show');
   });
-  
+
   dropdown.addEventListener('click', (e) => {
     e.stopPropagation();
   });
@@ -677,23 +681,23 @@ function setupBudgetFilter() {
 function renderBudgetFilterDropdown() {
   const dropdown = document.getElementById('budget-filter-dropdown');
   if (!dropdown) return;
-  
+
   dropdown.innerHTML = '';
-  
+
   appState.linkageMappings.forEach((mapDef, idx) => {
     const label = document.createElement('label');
     label.className = 'col-toggle-item';
-    
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = mapDef.isActive !== false;
-    
+
     checkbox.addEventListener('change', (e) => {
       mapDef.isActive = e.target.checked;
       saveState();
       renderAll();
     });
-    
+
     label.appendChild(checkbox);
     label.appendChild(document.createTextNode(' ' + mapDef.name));
     dropdown.appendChild(label);
@@ -716,7 +720,7 @@ function renderSettlementTable() {
   appState.linkageMappings.forEach(mapDef => {
     if (mapDef.isActive === false) return;
     const resolvedRevNames = resolveRevenueNames(mapDef.revenueNames || []);
-    
+
     // Revenue calculations
     const revRows = appData.revenue.filter(r => {
       const isTotalOrSubtotal = isRevenueTotalOrSubtotal(r);
@@ -758,9 +762,9 @@ function renderSettlementTable() {
   dashboardMappedData.forEach(row => {
     const tr = document.createElement('tr');
     if (row.isSelfFunded) tr.classList.add('row-subtotal');
-    
+
     const budgetBal = row.expBudget - row.expExecuted;
-    
+
     tr.innerHTML = `
       <td><strong>${row.name}</strong></td>
       <td class="text-right">${row.revBudget ? formatCurrency(row.revBudget) : '-'}</td>
@@ -777,9 +781,9 @@ function renderSettlementTable() {
   // Render Grand Total Row
   const totalTr = document.createElement('tr');
   totalTr.classList.add('row-total');
-  
+
   const sumBudgetBalance = sumExpBudget - sumExpExecuted;
-  
+
   totalTr.innerHTML = `
     <td>합계 (총계)</td>
     <td class="text-right">${formatCurrency(sumRevBudget)}</td>
@@ -798,11 +802,11 @@ function renderSettlementTable() {
 
   dashboardMappedData.forEach(row => {
     if (!row.expBudget) return;
-    
+
     const rate = (row.expExecuted / row.expBudget) * 100;
     const progressItem = document.createElement('div');
     progressItem.classList.add('status-progress-item');
-    
+
     let color = 'var(--primary-color)';
     if (row.isSelfFunded) color = '#94a3b8';
     else if (rate > 90) color = 'var(--color-expenditure)';
@@ -842,12 +846,12 @@ let revenueFilters = {
 
 function setupRevenueTableInteractive() {
   const headers = document.querySelectorAll('#revenue-table th.th-interactive');
-  
+
   headers.forEach(th => {
     const col = th.getAttribute('data-col');
     const filterBtn = th.querySelector('.header-filter-btn');
     const sortBtn = th.querySelector('.header-sort-btn');
-    
+
     if (filterBtn) {
       filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -855,7 +859,7 @@ function setupRevenueTableInteractive() {
         toggleRevenueFilterDropdown(col);
       });
     }
-    
+
     if (sortBtn) {
       sortBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -863,7 +867,7 @@ function setupRevenueTableInteractive() {
       });
     }
   });
-  
+
   document.addEventListener('click', () => {
     closeAllRevenueFilterDropdowns();
   });
@@ -872,7 +876,7 @@ function setupRevenueTableInteractive() {
 function toggleRevenueFilterDropdown(col) {
   const dropdown = document.getElementById(`filter-dropdown-${col}`);
   if (!dropdown) return;
-  
+
   const isShown = dropdown.classList.contains('show');
   if (isShown) {
     dropdown.classList.remove('show');
@@ -925,14 +929,14 @@ function renderRevenueFilterDropdownContent(col, dropdown) {
     <input type="text" class="filter-search" placeholder="검색..." onclick="event.stopPropagation()">
     <div class="filter-options-list">
       ${sortedValues.map(val => {
-        const isChecked = revenueFilters[col].includes(val);
-        return `
+    const isChecked = revenueFilters[col].includes(val);
+    return `
           <label class="filter-option-item" onclick="event.stopPropagation()">
             <input type="checkbox" data-val="${val}" ${isChecked ? 'checked' : ''}>
             <span>${val}</span>
           </label>
         `;
-      }).join('')}
+  }).join('')}
     </div>
     <div class="filter-actions" onclick="event.stopPropagation()">
       <button class="filter-btn-sub" onclick="applyRevenueFilter('${col}', true)">전체</button>
@@ -1030,10 +1034,10 @@ function handleRevenueSort(col) {
     const sortBtn = th.querySelector('.header-sort-btn');
     if (!sortBtn) return;
     const icon = sortBtn.querySelector('i');
-    
+
     sortBtn.classList.remove('active');
     icon.className = 'fa-solid fa-sort';
-    
+
     if (curCol === revenueSortCol && revenueSortDir !== 'none') {
       sortBtn.classList.add('active');
       if (revenueSortDir === 'asc') {
@@ -1050,7 +1054,7 @@ function handleRevenueSort(col) {
 function renderRevenueTable() {
   const tbody = document.getElementById('revenue-table-body');
   const searchVal = document.getElementById('revenue-search').value.toLowerCase().trim();
-  
+
   tbody.innerHTML = '';
   let count = 0;
 
@@ -1065,17 +1069,17 @@ function renderRevenueTable() {
 
   const individualRows = [];
   let originalRows = [];
-  
+
   appData.revenue.forEach(row => {
     const mok = getMok(row);
     const accounts = row.Col_1 || '';
     const isTotal = mok === '[ 총   계  ]';
     const isSubtotal = accounts === '[ 소   계 ]';
-    
+
     if (row.Col_2 && deactivatedRevenues.has(row.Col_2.trim())) {
       return;
     }
-    
+
     if (isTotal || isSubtotal) {
       // Subtotal/total row
     } else {
@@ -1084,7 +1088,7 @@ function renderRevenueTable() {
     originalRows.push(row);
   });
 
-  const isFilterActive = !!searchVal || 
+  const isFilterActive = !!searchVal ||
     revenueFilters.mok.length > 0 ||
     revenueFilters.accounts.length > 0 ||
     revenueFilters.desc.length > 0 ||
@@ -1092,7 +1096,7 @@ function renderRevenueTable() {
     revenueFilters.decided.length > 0 ||
     revenueFilters.received.length > 0 ||
     hasDeactivatedRevenues;
-    
+
   const isSortActive = revenueSortCol !== null && revenueSortDir !== 'none';
 
   if (!isFilterActive && !isSortActive) {
@@ -1186,12 +1190,12 @@ function renderRevenueTable() {
         <td class="text-right">${row.Col_5 ? formatCurrency(row.Col_5) : '-'}</td>
       `;
       tbody.appendChild(tr);
-      
+
       if (!isTotal && !isSubtotal) {
         count++;
       }
     });
-    
+
     document.getElementById('revenue-count').innerText = count;
     return;
   }
@@ -1204,7 +1208,7 @@ function renderRevenueTable() {
     const decidedVal = row.Col_4 ? formatCurrency(row.Col_4) : '0원';
     const receivedVal = row.Col_5 ? formatCurrency(row.Col_5) : '0원';
 
-    const matchSearch = !searchVal || 
+    const matchSearch = !searchVal ||
       mok.toString().toLowerCase().includes(searchVal) ||
       accounts.toString().toLowerCase().includes(searchVal) ||
       desc.toString().toLowerCase().includes(searchVal);
@@ -1359,12 +1363,12 @@ let expenditureFilters = {
 
 function setupExpenditureTableInteractive() {
   const headers = document.querySelectorAll('#expenditure-table th.th-interactive');
-  
+
   headers.forEach(th => {
     const col = th.getAttribute('data-col');
     const filterBtn = th.querySelector('.header-filter-btn');
     const sortBtn = th.querySelector('.header-sort-btn');
-    
+
     if (filterBtn) {
       filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1372,7 +1376,7 @@ function setupExpenditureTableInteractive() {
         toggleExpenditureFilterDropdown(col);
       });
     }
-    
+
     if (sortBtn) {
       sortBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1380,7 +1384,7 @@ function setupExpenditureTableInteractive() {
       });
     }
   });
-  
+
   document.addEventListener('click', () => {
     closeAllExpenditureFilterDropdowns();
   });
@@ -1389,7 +1393,7 @@ function setupExpenditureTableInteractive() {
 function toggleExpenditureFilterDropdown(col) {
   const dropdown = document.getElementById(`filter-dropdown-exp-${col}`);
   if (!dropdown) return;
-  
+
   const isShown = dropdown.classList.contains('show');
   if (isShown) {
     dropdown.classList.remove('show');
@@ -1423,7 +1427,7 @@ function renderExpenditureFilterDropdownContent(col, dropdown) {
     const subitemName = row.Col_1 || '';
     const accountName = row.Col_2 || '';
     const desc = row.Col_3 || '';
-    
+
     const isTotal = /\[\s*총\s*계\s*\]/.test(businessName) || /\[\s*총\s*계\s*\]/.test(subitemName) || /\[\s*총\s*계\s*\]/.test(accountName);
     const isSubtotal = /\[\s*소\s*계\s*\]/.test(subitemName) || /\[\s*소\s*계\s*\]/.test(accountName);
 
@@ -1458,14 +1462,14 @@ function renderExpenditureFilterDropdownContent(col, dropdown) {
     <input type="text" class="filter-search" placeholder="검색..." onclick="event.stopPropagation()">
     <div class="filter-options-list">
       ${sortedValues.map(val => {
-        const isChecked = expenditureFilters[col].includes(val);
-        return `
+    const isChecked = expenditureFilters[col].includes(val);
+    return `
           <label class="filter-option-item" onclick="event.stopPropagation()">
             <input type="checkbox" data-val="${val}" ${isChecked ? 'checked' : ''}>
             <span>${val}</span>
           </label>
         `;
-      }).join('')}
+  }).join('')}
     </div>
     <div class="filter-actions" onclick="event.stopPropagation()">
       <button class="filter-btn-sub" onclick="applyExpenditureFilter('${col}', true)">전체</button>
@@ -1563,7 +1567,7 @@ function handleExpenditureSort(col) {
     const icon = sortBtn.querySelector('i');
     sortBtn.classList.remove('active');
     icon.className = 'fa-solid fa-sort';
-    
+
     if (curCol === expenditureSortCol && expenditureSortDir !== 'none') {
       sortBtn.classList.add('active');
       if (expenditureSortDir === 'asc') icon.className = 'fa-solid fa-sort-up';
@@ -1577,7 +1581,7 @@ function handleExpenditureSort(col) {
 function renderExpenditureTable() {
   const tbody = document.getElementById('expenditure-table-body');
   const searchVal = document.getElementById('expenditure-search').value.toLowerCase().trim();
-  
+
   tbody.innerHTML = '';
   let count = 0;
 
@@ -1598,7 +1602,7 @@ function renderExpenditureTable() {
     });
   });
 
-  const isFilterActive = !!searchVal || 
+  const isFilterActive = !!searchVal ||
     expenditureFilters.subitem.length > 0 ||
     expenditureFilters.account.length > 0 ||
     expenditureFilters.desc.length > 0 ||
@@ -1610,7 +1614,7 @@ function renderExpenditureTable() {
     expenditureFilters.paid_balance.length > 0 ||
     expenditureFilters.funding.length > 0 ||
     hasDeactivatedExpenditures;
-    
+
   const isSortActive = expenditureSortCol !== null && expenditureSortDir !== 'none';
 
   const individualRows = [];
@@ -1686,7 +1690,7 @@ function renderExpenditureTable() {
             <td class="text-right">-</td>
           `;
           tbody.appendChild(tr);
-          
+
           subCol6 = 0; subCol7 = 0; subCol8 = 0; subCol9 = 0; subCol11 = 0; subCol12 = 0; subCol13 = 0;
           hasMappedInSub = false;
         }
@@ -1774,7 +1778,7 @@ function renderExpenditureTable() {
     const paidBalanceVal = row.Col_12 ? formatCurrency(row.Col_12) : '0원';
     const fundingVal = row.Col_13 ? formatCurrency(row.Col_13) : '0원';
 
-    const matchSearch = !searchVal || 
+    const matchSearch = !searchVal ||
       subitemName.toString().toLowerCase().includes(searchVal) ||
       accountName.toString().toLowerCase().includes(searchVal) ||
       desc.toString().toLowerCase().includes(searchVal);
@@ -1940,7 +1944,7 @@ function getValidSubitems() {
 function updateMatrixHighlight() {
   const table = document.getElementById('monthly-matrix-table');
   if (!table) return;
-  
+
   // 모든 active 관련 클래스 제거
   table.querySelectorAll('th, td').forEach(cell => {
     cell.classList.remove('active-cell', 'active-row', 'active-col');
@@ -1951,10 +1955,10 @@ function updateMatrixHighlight() {
   table.querySelectorAll('th, td').forEach(cell => {
     const month = cell.dataset.month;
     const cat = cell.dataset.cat;
-    
+
     const isHeaderCat = cell.tagName === 'TH' && cell.dataset.cat;
-    const isHeaderMonth = cell.tagName === 'TD' && cell.dataset.month && cell.classList.contains('row-label'); 
-    
+    const isHeaderMonth = cell.tagName === 'TD' && cell.dataset.month && cell.classList.contains('row-label');
+
     // 정확히 매칭되는 단일 셀/헤더인 경우 active-cell 적용
     if (month === selectedMonth && cat === selectedCat) {
       cell.classList.add('active-cell');
@@ -1963,7 +1967,7 @@ function updateMatrixHighlight() {
     } else if (selectedCat === 'all' && month === selectedMonth && (isHeaderMonth || cell.dataset.isTotalMonthCell)) {
       cell.classList.add('active-cell');
     }
-    
+
     // 열 하이라이트 (동일 카테고리)
     if (selectedCat !== 'all' && cat === selectedCat) {
       cell.classList.add('active-col');
@@ -2056,7 +2060,7 @@ function renderMonthlyMatrix() {
     th.style.cursor = 'pointer';
     th.title = d.subitem + ' / ' + d.cat;
     th.innerHTML = `<span style="font-size:0.72rem;color:var(--text-muted);display:block;margin-bottom:2px;">${d.subitem}</span><strong style="font-size:0.8rem;">${d.cat}</strong>`;
-    
+
     th.dataset.month = 'all';
     th.dataset.cat = d.cat;
 
@@ -2074,7 +2078,7 @@ function renderMonthlyMatrix() {
   thTotal.className = 'text-right interactive-cell';
   thTotal.style.cursor = 'pointer';
   thTotal.innerHTML = '<strong>합계</strong>';
-  
+
   thTotal.dataset.month = 'all';
   thTotal.dataset.cat = 'all';
 
@@ -2091,12 +2095,12 @@ function renderMonthlyMatrix() {
 
   // ── 행 데이터 정의 ─────────────────────────────
   const rowDefs = [
-    { label: '예산현액',  cls: 'text-primary-header', getValue: d => d.budget,   fmt: v => formatCurrency(v), sub: false, filterMonth: null },
-    { label: '3월 지출',  cls: 'text-orange',          getValue: d => d.m3,      fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '03' },
-    { label: '4월 지출',  cls: 'text-orange',          getValue: d => d.m4,      fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '04' },
-    { label: '5월 지출',  cls: 'text-orange',          getValue: d => d.m5,      fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '05' },
-    { label: '지출 합계', cls: 'text-danger-header',   getValue: d => d.sumSpent, fmt: v => v ? formatCurrency(v) : '-', sub: true, filterMonth: 'all' },
-    { label: '예산 잔액', cls: 'text-blue',            getValue: d => d.remaining, fmt: v => formatCurrency(v), sub: true, filterMonth: null }
+    { label: '예산현액', cls: 'text-primary-header', getValue: d => d.budget, fmt: v => formatCurrency(v), sub: false, filterMonth: null },
+    { label: '3월 지출', cls: 'text-orange', getValue: d => d.m3, fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '03' },
+    { label: '4월 지출', cls: 'text-orange', getValue: d => d.m4, fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '04' },
+    { label: '5월 지출', cls: 'text-orange', getValue: d => d.m5, fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '05' },
+    { label: '지출 합계', cls: 'text-danger-header', getValue: d => d.sumSpent, fmt: v => v ? formatCurrency(v) : '-', sub: true, filterMonth: 'all' },
+    { label: '예산 잔액', cls: 'text-blue', getValue: d => d.remaining, fmt: v => formatCurrency(v), sub: true, filterMonth: null }
   ];
 
   rowDefs.forEach(rowDef => {
@@ -2105,13 +2109,13 @@ function renderMonthlyMatrix() {
 
     const tdLabel = document.createElement('td');
     tdLabel.innerHTML = `<strong>${rowDef.label}</strong>`;
-    
+
     if (rowDef.filterMonth !== null) {
       tdLabel.style.cursor = 'pointer';
       tdLabel.dataset.month = rowDef.filterMonth;
       tdLabel.dataset.cat = 'all';
       tdLabel.classList.add('interactive-cell', 'row-label');
-      
+
       tdLabel.addEventListener('click', () => {
         analysisState.selectedMonth = rowDef.filterMonth;
         analysisState.selectedCat = 'all';
@@ -2130,17 +2134,17 @@ function renderMonthlyMatrix() {
       const td = document.createElement('td');
       td.className = `text-right ${rowDef.cls}`;
       td.textContent = rowDef.fmt(val);
-      
+
       if (rowDef.filterMonth !== null) {
         td.style.cursor = 'pointer';
         td.dataset.month = rowDef.filterMonth;
         td.dataset.cat = d.cat;
         td.classList.add('interactive-cell');
-        
+
         if (rowDef.filterMonth === 'all') {
           td.dataset.isTotalSpentCell = 'true';
         }
-        
+
         td.addEventListener('click', () => {
           analysisState.selectedMonth = rowDef.filterMonth;
           analysisState.selectedCat = d.cat;
@@ -2156,17 +2160,17 @@ function renderMonthlyMatrix() {
     const tdTotal = document.createElement('td');
     tdTotal.className = `text-right ${rowDef.cls}`;
     tdTotal.innerHTML = `<strong>${rowDef.fmt(rowSum)}</strong>`;
-    
+
     if (rowDef.filterMonth !== null) {
       tdTotal.style.cursor = 'pointer';
       tdTotal.dataset.month = rowDef.filterMonth;
       tdTotal.dataset.cat = 'all';
       tdTotal.classList.add('interactive-cell');
-      
+
       if (rowDef.filterMonth !== 'all') {
         tdTotal.dataset.isTotalMonthCell = 'true';
       }
-      
+
       tdTotal.addEventListener('click', () => {
         analysisState.selectedMonth = rowDef.filterMonth;
         analysisState.selectedCat = 'all';
@@ -2179,7 +2183,7 @@ function renderMonthlyMatrix() {
     tr.appendChild(tdTotal);
     tbody.appendChild(tr);
   });
-  
+
   updateMatrixHighlight();
 }
 
@@ -2197,29 +2201,29 @@ function renderMonthlyAnalysis() {
   // 1. Render Left Panel Summary Card if category selected
   if (summaryCard && selectedCat !== 'all') {
     summaryCard.style.display = 'block';
-    
+
     // Find matching expenditure item
     const budgetItem = appData.expenditure.find(e => e.Col_3 && e.Col_3.trim() === selectedCat.trim());
     if (budgetItem) {
       document.getElementById('cat-summary-title').innerText = selectedCat;
       document.getElementById('cat-summary-subitem').innerText = budgetItem.Col_1 || '-';
       document.getElementById('cat-summary-account').innerText = budgetItem.Col_2 || '-';
-      
+
       const budget = parseFloat(budgetItem.Col_6) || 0;
       document.getElementById('cat-summary-budget').innerText = formatCurrency(budget);
 
       // Calculate transaction totals for this category
       const catTrans = appData.history.filter(h => h.산출내역 && h.산출내역.trim() === selectedCat.trim());
-      
+
       let totalSpent = 0;
       let monthSpent = 0;
 
       catTrans.forEach(t => {
         const amt = parseFloat(t.원인행위액) || 0;
         const date = t.일자 || '';
-        
+
         totalSpent += amt;
-        
+
         if (selectedMonth !== 'all' && date.includes('-')) {
           const m = date.split('-')[1];
           if (m === selectedMonth) {
@@ -2233,7 +2237,7 @@ function renderMonthlyAnalysis() {
       document.getElementById('cat-summary-total-spent').innerText = formatCurrency(totalSpent);
       document.getElementById('cat-summary-month-spent').innerText = formatCurrency(monthSpent);
       document.getElementById('cat-summary-balance').innerText = formatCurrency(budget - totalSpent);
-      
+
       // Update Monthly label
       const monthLabel = selectedMonth === 'all' ? '누적 지출액' : `${parseInt(selectedMonth)}월 지출액`;
       document.getElementById('cat-summary-month-spent').previousElementSibling.innerText = monthLabel + ':';
@@ -2329,12 +2333,12 @@ let transactionsFilters = {
 
 function setupTransactionsTableInteractive() {
   const headers = document.querySelectorAll('#transactions-table th.th-interactive');
-  
+
   headers.forEach(th => {
     const col = th.getAttribute('data-col');
     const filterBtn = th.querySelector('.header-filter-btn');
     const sortBtn = th.querySelector('.header-sort-btn');
-    
+
     if (filterBtn) {
       filterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2342,7 +2346,7 @@ function setupTransactionsTableInteractive() {
         toggleTransactionsFilterDropdown(col);
       });
     }
-    
+
     if (sortBtn) {
       sortBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2350,7 +2354,7 @@ function setupTransactionsTableInteractive() {
       });
     }
   });
-  
+
   document.addEventListener('click', () => {
     closeAllTransactionsFilterDropdowns();
   });
@@ -2359,7 +2363,7 @@ function setupTransactionsTableInteractive() {
 function toggleTransactionsFilterDropdown(col) {
   const dropdown = document.getElementById(`filter-dropdown-tx-${col}`);
   if (!dropdown) return;
-  
+
   const isShown = dropdown.classList.contains('show');
   if (isShown) {
     dropdown.classList.remove('show');
@@ -2410,14 +2414,14 @@ function renderTransactionsFilterDropdownContent(col, dropdown) {
     <input type="text" class="filter-search" placeholder="검색..." onclick="event.stopPropagation()">
     <div class="filter-options-list">
       ${sortedValues.map(val => {
-        const isChecked = transactionsFilters[col].includes(val);
-        return `
+    const isChecked = transactionsFilters[col].includes(val);
+    return `
           <label class="filter-option-item" onclick="event.stopPropagation()">
             <input type="checkbox" data-val="${val}" ${isChecked ? 'checked' : ''}>
             <span>${val}</span>
           </label>
         `;
-      }).join('')}
+  }).join('')}
     </div>
     <div class="filter-actions" onclick="event.stopPropagation()">
       <button class="filter-btn-sub" onclick="applyTransactionsFilter('${col}', true)">전체</button>
@@ -2515,7 +2519,7 @@ function handleTransactionsSort(col) {
     const icon = sortBtn.querySelector('i');
     sortBtn.classList.remove('active');
     icon.className = 'fa-solid fa-sort';
-    
+
     if (curCol === transactionsSortCol && transactionsSortDir !== 'none') {
       sortBtn.classList.add('active');
       if (transactionsSortDir === 'asc') icon.className = 'fa-solid fa-sort-up';
@@ -2531,7 +2535,7 @@ function renderTransactionsTable() {
   const searchVal = document.getElementById('transactions-search').value.toLowerCase().trim();
   const selectedMonth = document.getElementById('transactions-filter-month').value;
   const selectedCat = document.getElementById('transactions-filter-category').value;
-  
+
   tbody.innerHTML = '';
   let count = 0;
 
@@ -2559,12 +2563,12 @@ function renderTransactionsTable() {
     const account = t.원가통계비목 || '';
     const amtVal = t.원인행위액 ? formatCurrency(t.원인행위액) : '0원';
 
-    const matchSearch = !searchVal || 
+    const matchSearch = !searchVal ||
       title.toLowerCase().includes(searchVal) ||
       subitem.toLowerCase().includes(searchVal) ||
       detail.toLowerCase().includes(searchVal) ||
       num.toLowerCase().includes(searchVal);
-      
+
     if (!matchSearch) return false;
 
     const matchMonth = selectedMonth === 'all' || (date.includes('-') && date.split('-')[1] === selectedMonth);
@@ -2674,7 +2678,7 @@ function renderDashboardChart() {
     chartInstance = null;
   }
   const ctx = document.getElementById('chart-comparison').getContext('2d');
-  
+
   // Filter out self-funded for the main chart, or include it
   const chartLabels = dashboardMappedData.map(d => d.name);
   const revenueData = dashboardMappedData.map(d => d.revDecided);
@@ -2733,7 +2737,7 @@ function renderDashboardChart() {
           },
           ticks: {
             color: textColor,
-            callback: function(value) {
+            callback: function (value) {
               return value >= 1000000 ? (value / 1000000) + '백만' : value;
             },
             font: {
@@ -2766,7 +2770,7 @@ function renderDashboardChart() {
             family: "'Outfit', 'Noto Sans KR', sans-serif"
           },
           callbacks: {
-            label: function(context) {
+            label: function (context) {
               let label = context.dataset.label || '';
               if (label) {
                 label += ': ';
@@ -2942,12 +2946,12 @@ function renderUnmergedRevenuesList() {
   if (!container) return;
   container.innerHTML = '';
   const unmerged = getUnmergedRevenues();
-  
+
   if (unmerged.length === 0) {
     container.innerHTML = '<div style="color: #9ca3af; font-size: 0.8rem; padding: 10px; text-align: center;">모든 세입 항목이 병합되었습니다.</div>';
     return;
   }
-  
+
   unmerged.forEach(name => {
     const div = document.createElement('label');
     div.className = 'checkbox-item';
@@ -2964,12 +2968,12 @@ function renderCurrentMergeGroupsList() {
   if (!container) return;
   container.innerHTML = '';
   const groupNames = Object.keys(appState.mergedRevenues || {});
-  
+
   if (groupNames.length === 0) {
     container.innerHTML = '<div style="color: #9ca3af; font-size: 0.82rem; padding: 20px; text-align: center;">구성된 세입 병합 그룹이 없습니다.</div>';
     return;
   }
-  
+
   groupNames.forEach(groupName => {
     const members = appState.mergedRevenues[groupName];
     const div = document.createElement('div');
@@ -2985,7 +2989,7 @@ function renderCurrentMergeGroupsList() {
     `;
     container.appendChild(div);
   });
-  
+
   // Attach delete handlers
   container.querySelectorAll('.btn-delete-group').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -2999,7 +3003,7 @@ function renderCurrentMergeGroupsList() {
 function deleteMergeGroup(groupName) {
   const members = appState.mergedRevenues[groupName];
   delete appState.mergedRevenues[groupName];
-  
+
   // Update linkage mappings
   appState.linkageMappings.forEach(mapping => {
     const idx = mapping.revenueNames ? mapping.revenueNames.indexOf(groupName) : -1;
@@ -3015,7 +3019,7 @@ function deleteMergeGroup(groupName) {
       mapping.name = members.length > 0 ? members[0] : '미지정';
     }
   });
-  
+
   renderUnmergedRevenuesList();
   renderCurrentMergeGroupsList();
   renderMappingTable();
@@ -3028,23 +3032,23 @@ function createMergeGroup() {
     alert('병합 그룹 이름을 입력해주세요.');
     return;
   }
-  
+
   const allRoots = getUniqueRevenues();
   if (appState.mergedRevenues[groupName] || allRoots.includes(groupName)) {
     alert('이미 존재하는 항목 또는 그룹 이름입니다.');
     return;
   }
-  
+
   const checkboxes = document.querySelectorAll('#unmerged-revenues-list input[type="checkbox"]:checked');
   const selectedRevenues = Array.from(checkboxes).map(cb => cb.value);
-  
+
   if (selectedRevenues.length < 2) {
     alert('병합하려면 최소 2개 이상의 세입 항목을 선택해야 합니다.');
     return;
   }
-  
+
   appState.mergedRevenues[groupName] = selectedRevenues;
-  
+
   // Update linkage mappings: combine matched mappings
   const itemsToMerge = [];
   appState.linkageMappings.forEach(m => {
@@ -3053,7 +3057,7 @@ function createMergeGroup() {
       itemsToMerge.push(m);
     }
   });
-  
+
   if (itemsToMerge.length > 0) {
     const targetMapping = itemsToMerge[0];
     targetMapping.revenueNames = (targetMapping.revenueNames || []).filter(name => !selectedRevenues.includes(name));
@@ -3061,7 +3065,7 @@ function createMergeGroup() {
       targetMapping.revenueNames.push(groupName);
     }
     targetMapping.name = groupName;
-    
+
     for (let i = 1; i < itemsToMerge.length; i++) {
       const other = itemsToMerge[i];
       (other.expenditureNames || []).forEach(exp => {
@@ -3081,7 +3085,7 @@ function createMergeGroup() {
       expenditureNames: []
     });
   }
-  
+
   nameInput.value = '';
   renderUnmergedRevenuesList();
   renderCurrentMergeGroupsList();
@@ -3091,7 +3095,7 @@ function createMergeGroup() {
 function syncLinkageMappings() {
   const roots = getRevenueRootEntities();
   const newMappings = [];
-  
+
   roots.forEach(root => {
     let existing = appState.linkageMappings.find(m => m.name === root || (m.revenueNames || []).includes(root));
     if (existing) {
@@ -3110,7 +3114,7 @@ function syncLinkageMappings() {
       });
     }
   });
-  
+
   appState.linkageMappings = newMappings;
 }
 
@@ -3119,12 +3123,12 @@ function renderMappingTable() {
   const tbody = document.getElementById('mapping-settings-table-body');
   if (!tbody) return;
   tbody.innerHTML = '';
-  
+
   const exps = getUniqueExpenditures();
-  
+
   appState.linkageMappings.forEach((mapping, idx) => {
     const tr = document.createElement('tr');
-    
+
     let optionsHTML = '';
     exps.forEach(expName => {
       const isChecked = (mapping.expenditureNames || []).includes(expName) ? 'checked' : '';
@@ -3135,10 +3139,10 @@ function renderMappingTable() {
         </label>
       `;
     });
-    
+
     const selectedCount = (mapping.expenditureNames || []).length;
     const triggerText = selectedCount > 0 ? `${selectedCount}개 선택됨` : '선택된 세출 항목 없음';
-    
+
     tr.innerHTML = `
       <td><strong>${mapping.name}</strong></td>
       <td>
@@ -3153,16 +3157,16 @@ function renderMappingTable() {
         </div>
       </td>
     `;
-    
+
     tbody.appendChild(tr);
   });
-  
+
   tbody.querySelectorAll('.custom-select-option input[type="checkbox"]').forEach(checkbox => {
     checkbox.addEventListener('change', (e) => {
       const idx = parseInt(checkbox.getAttribute('data-mapping-idx'));
       const val = checkbox.value;
       const mapping = appState.linkageMappings[idx];
-      
+
       if (checkbox.checked) {
         if (!mapping.expenditureNames.includes(val)) {
           mapping.expenditureNames.push(val);
@@ -3170,19 +3174,19 @@ function renderMappingTable() {
       } else {
         mapping.expenditureNames = mapping.expenditureNames.filter(x => x !== val);
       }
-      
+
       const count = mapping.expenditureNames.length;
       document.getElementById(`select-trigger-text-${idx}`).innerText = count > 0 ? `${count}개 선택됨` : '선택된 세출 항목 없음';
     });
   });
 }
 
-window.toggleCustomDropdown = function(idx) {
+window.toggleCustomDropdown = function (idx) {
   const wrapper = document.getElementById(`select-wrapper-${idx}`);
   const isOpen = wrapper.classList.contains('open');
-  
+
   document.querySelectorAll('.custom-select-wrapper').forEach(w => w.classList.remove('open'));
-  
+
   if (!isOpen) {
     wrapper.classList.add('open');
   }
@@ -3196,70 +3200,70 @@ function setupMappingSettings() {
   const btnSave = document.getElementById('btn-save-mappings');
   const btnReset = document.getElementById('btn-reset-mappings');
   const overlay = document.getElementById('modal-overlay');
-  
+
   if (!modal || !btnOpen) return;
 
   const tabBtns = document.querySelectorAll('.modal-tab-btn');
   const tabContents = document.querySelectorAll('.modal-tab-content');
   const btnCreateGroup = document.getElementById('btn-create-merge-group');
-  
+
   let tempAppState = null;
-  
+
   btnOpen.addEventListener('click', () => {
     tempAppState = JSON.parse(JSON.stringify(appState));
-    
+
     renderUnmergedRevenuesList();
     renderCurrentMergeGroupsList();
     renderMappingTable();
-    
+
     modal.classList.add('active');
   });
-  
+
   const closeModal = () => {
     modal.classList.remove('active');
   };
-  
+
   btnClose.addEventListener('click', () => {
     appState = tempAppState;
     closeModal();
   });
-  
+
   btnCancel.addEventListener('click', () => {
     appState = tempAppState;
     closeModal();
   });
-  
+
   overlay.addEventListener('click', () => {
     appState = tempAppState;
     closeModal();
   });
-  
+
   btnSave.addEventListener('click', () => {
     saveState();
     closeModal();
-    
+
     renderBudgetFilterDropdown();
     renderAll();
   });
-  
+
   btnReset.addEventListener('click', () => {
     if (confirm('모든 매핑 및 세입 통합 설정을 기본값으로 복원하시겠습니까?')) {
       appState.mergedRevenues = JSON.parse(JSON.stringify(DEFAULT_REVENUE_MERGES));
       appState.linkageMappings = JSON.parse(JSON.stringify(DEFAULT_LINKAGE_MAPPINGS));
-      
+
       renderUnmergedRevenuesList();
       renderCurrentMergeGroupsList();
       renderMappingTable();
     }
   });
-  
+
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-modal-tab');
-      
+
       tabBtns.forEach(b => b.classList.remove('active'));
       tabContents.forEach(c => c.classList.remove('active'));
-      
+
       btn.classList.add('active');
       if (tabId === 'revenue-merge') {
         document.getElementById('modal-tab-revenue-merge').classList.add('active');
@@ -3268,7 +3272,7 @@ function setupMappingSettings() {
       }
     });
   });
-  
+
   btnCreateGroup.addEventListener('click', () => {
     createMergeGroup();
   });
@@ -3305,7 +3309,7 @@ function setupUserManual() {
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const targetTab = btn.getAttribute('data-manual-tab');
-      
+
       tabBtns.forEach(b => b.classList.remove('active'));
       tabPanes.forEach(p => p.classList.remove('active'));
 
@@ -3362,7 +3366,7 @@ function exportSettlementToExcel() {
   const profileName = appState.activeProfile;
   const academicYear = getDynamicAcademicYear();
   const refDate = document.getElementById('current-date')?.innerText || '';
-  
+
   const wsData = [
     [`${academicYear}학년도 [${profileName}] 예산 정산 총괄표`],
     [`정산 기준일자: ${refDate}`],
@@ -3389,7 +3393,7 @@ function exportSettlementToExcel() {
   dashboardMappedData.forEach(row => {
     const budgetBal = row.expBudget - row.expExecuted;
     const rate = row.expBudget ? ((row.expExecuted / row.expBudget) * 100).toFixed(1) + '%' : '-';
-    
+
     sumRevBudget += row.revBudget || 0;
     sumRevDecided += row.revDecided || 0;
     sumExpBudget += row.expBudget || 0;
@@ -3494,7 +3498,7 @@ function setupBackupAndRestore() {
 // -------------------------------------------------------------
 // TRANSACTION DRILLDOWN MODAL
 // -------------------------------------------------------------
-window.openDrilldownModal = function(expName) {
+window.openDrilldownModal = function (expName) {
   if (!expName) return;
   const modal = document.getElementById('transaction-drilldown-modal');
   const titleEl = document.getElementById('drilldown-category-name');
@@ -3752,21 +3756,21 @@ function detectExcelType(records) {
   if (!records || records.length === 0) return null;
   const first = records[0];
   const keys = Object.keys(first);
-  
+
   // 1. 지출실적조회 감지 (헤더 컬럼명에 결재일자, 지출 적요, 결의번호 등이 있는 경우)
-  const hasHistoryKeywords = keys.some(k => 
+  const hasHistoryKeywords = keys.some(k =>
     k.includes('결재일자') || k.includes('지출 적요') || k.includes('지출적요') || k.includes('결의번호') || k === '적요'
   );
   if (hasHistoryKeywords) return 'history';
 
   // 2. 세입 감지 (헤더 컬럼명에 징수결정액, 수납액 등이 있는 경우)
-  const hasRevenueKeywords = keys.some(k => 
+  const hasRevenueKeywords = keys.some(k =>
     k.includes('징수결정액') || k.includes('수납액') || k.includes('미수납액')
   );
   if (hasRevenueKeywords) return 'revenue';
 
   // 3. 세출 감지 (헤더 컬럼명에 원인행위액, 지출품의액, 지급액 등이 있는 경우)
-  const hasExpenditureKeywords = keys.some(k => 
+  const hasExpenditureKeywords = keys.some(k =>
     k.includes('원인행위액') || k.includes('지출품의액') || k.includes('지급액') || k.includes('예산잔액')
   );
   if (hasExpenditureKeywords) return 'expenditure';
@@ -3775,7 +3779,7 @@ function detectExcelType(records) {
   const colCount = keys.length;
   if (colCount >= 12) return 'expenditure';
   if (colCount >= 5 && colCount <= 7) return 'revenue';
-  
+
   return null;
 }
 
@@ -3786,7 +3790,7 @@ function processSelectedFile(key, file, statusEl) {
   statusEl.innerText = '분석 중...';
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = function (e) {
     try {
       const arrayBuffer = e.target.result;
       const records = cleanExcel(arrayBuffer);
@@ -3794,13 +3798,13 @@ function processSelectedFile(key, file, statusEl) {
 
       // Detect Excel Type
       const detectedKey = detectExcelType(sanitized) || key;
-      
+
       uploadedData[detectedKey] = sanitized;
 
       // Update status for the detected slot
       const targetStatusId = `status-${detectedKey}`;
       const targetStatusEl = document.getElementById(targetStatusId) || statusEl;
-      
+
       targetStatusEl.className = 'file-status ready';
       targetStatusEl.innerText = `완료: ${sanitized.length}행`;
 
@@ -3810,7 +3814,7 @@ function processSelectedFile(key, file, statusEl) {
           statusEl.className = 'file-status';
           statusEl.innerText = '대기 중';
         }
-        
+
         const typeNames = { revenue: '세입 산출내역', expenditure: '세출 산출내역', history: '지출실적조회' };
         alert(`알림: 업로드하신 파일이 '${typeNames[detectedKey]}'으로 감지되어 해당 영역에 자동으로 배치되었습니다.`);
       }
@@ -3825,7 +3829,7 @@ function processSelectedFile(key, file, statusEl) {
     }
   };
 
-  reader.onerror = function() {
+  reader.onerror = function () {
     statusEl.className = 'file-status error';
     statusEl.innerText = '파일 읽기 실패';
     uploadedData[key] = null;
@@ -3862,11 +3866,11 @@ function updateApplyButtonState() {
 function cleanExcel(arrayBuffer) {
   const data = new Uint8Array(arrayBuffer);
   // cellDates: true resolves Date formatting, raw: false outputs formatted string
-  const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
   const firstSheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[firstSheetName];
   // Convert sheet to nested array
-  const rawRows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: null});
+  const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
 
   let headerIdx = null;
   for (let idx = 0; idx < rawRows.length; idx++) {
@@ -3986,12 +3990,12 @@ function setupTheme() {
   btnTheme.addEventListener('click', () => {
     const activeTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     const newTheme = activeTheme === 'light' ? 'dark' : 'light';
-    
+
     document.documentElement.setAttribute('data-theme', newTheme);
     localStorage.setItem('k_budget_theme', newTheme);
     saveState();
     updateThemeButton(newTheme);
-    
+
     // Re-render chart if dashboard tab is active to apply correct font/line colors
     const activeTab = document.querySelector('.nav-item.active');
     if (activeTab && activeTab.dataset.tab === 'dashboard') {
@@ -4010,7 +4014,7 @@ function setupProfileManagement() {
   const btnCloseModal = document.getElementById('btn-close-profile-modal');
   const btnCloseModalFooter = document.getElementById('btn-close-profile-modal-footer');
   const overlay = document.getElementById('profile-modal-overlay');
-  
+
   const btnCreate = document.getElementById('btn-create-profile');
   const newProfileInput = document.getElementById('new-profile-name');
 
@@ -4061,7 +4065,7 @@ function setupProfileManagement() {
     saveState();
     renderProfileSelectOptions();
     renderProfileList();
-    
+
     // Auto select newly created profile
     profileSelect.value = name;
     selectProfile(name);
@@ -4072,7 +4076,7 @@ function setupProfileManagement() {
 function renderProfileSelectOptions() {
   const select = document.getElementById('select-active-profile');
   if (!select) return;
-  
+
   select.innerHTML = '';
   Object.keys(appState.profiles).forEach(name => {
     const opt = document.createElement('option');
@@ -4134,7 +4138,7 @@ function renderProfileList() {
     btnDel.style.height = 'auto';
     btnDel.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
     btnDel.title = '프로필 삭제';
-    
+
     // Prevent deleting the last profile
     if (Object.keys(appState.profiles).length <= 1) {
       btnDel.disabled = true;
@@ -4144,12 +4148,12 @@ function renderProfileList() {
     btnDel.addEventListener('click', () => {
       if (confirm(`'${name}' 프로필과 모든 연동 데이터를 삭제하시겠습니까?`)) {
         delete appState.profiles[name];
-        
+
         // If the deleted profile was active, switch to another one
         if (name === appState.activeProfile) {
           appState.activeProfile = Object.keys(appState.profiles)[0];
         }
-        
+
         saveState();
         renderProfileSelectOptions();
         renderProfileList();
@@ -4246,7 +4250,7 @@ function selectProfile(profileName) {
 function updateDynamicTexts() {
   const profileName = appState.activeProfile;
   const academicYear = getDynamicAcademicYear();
-  
+
   // 1. Update document title
   document.title = `${academicYear}학년도 [${profileName}] 예산정산 대시보드`;
 
