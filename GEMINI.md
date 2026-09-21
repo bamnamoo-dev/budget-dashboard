@@ -52,7 +52,7 @@ graph TD
 | **Typography & Icons** | Outfit, Noto Sans KR, Font Awesome 6 | 현대적인 타이포그래피 및 가독성 높은 금융/행정 아이콘 셋 |
 | **Logic & State** | Vanilla Modern JavaScript (ES6+) | 모듈화된 이벤트 핸들링, 다중 사업 프로필 상태 관리, 실시간 통계 계산 |
 | **Data Visualization** | Chart.js 4.x | 월별 집행 추이(Bar Chart), 비목별 지출 비중(Doughnut Chart) |
-| **Excel Processing** | SheetJS (`xlsx.full.min.js`) | K-에듀파인 지출내역/세입예산 엑셀 파일 클라이언트 0초 메모리 파싱 & 템플릿 다운로드 |
+| **Excel Processing** | ExcelJS (`exceljs.min.js`), SheetJS (`xlsx.full.min.js`) | K-에듀파인 지출내역/세입예산 엑셀 파일 클라이언트 메모리 파싱 & ExcelJS 기반 고품격 서식화(천단위 콤마, 수식, 2단 그룹 헤더, 회계 마감선) 엑셀 다운로드 |
 | **Build Tool** | Vite 5.x | HMR 개발 환경 및 경량화 정적 배포 번들링 (`dist/`) |
 | **Desktop Wrapper** | Python 3 (`run_app.py`), PyInstaller | 로컬 경량 HTTP 서버 + Heartbeat 기반 자동 종료 + `dashboard_state.json` 파일 영속화 |
 | **CI/CD & Hosting** | GitHub Actions & GitHub Pages | `main` 브랜치 Push 시 `dist/` 자동 빌드 및 배포 |
@@ -88,7 +88,11 @@ graph TD
 
 ### 1) 📊 정산 대시보드 (`#tab-dashboard`)
 - **KPI 지표 요약**: 총 예산액, 실제 세입액, 세출 집행액, 최종 정산잔액, 집행률 실시간 카드 표시
-- **정산 총괄표 엑셀(`.xlsx`) 다운로드**: 세입-세출-잔액-집행률 총괄표를 SheetJS 기반 서식 엑셀 파일로 즉시 다운로드 (`exportSettlementToExcel()`)
+- **고품격 정산 총괄표 엑셀(`.xlsx`) 다운로드 (`exportSettlementToExcel()`)**:
+  - **ExcelJS 기반 전문 서식**: 텍스트가 아닌 실제 숫자(`Number`) 데이터 + **천 단위 콤마(`numFmt = '#,##0'`)** 완벽 적용 (엑셀 내 추가 수식 및 편집 가능)
+  - **2단 컬러 그룹 헤더**: 세입(에메랄드 민트), 세출(로즈 핑크), 정산 잔액(스카이 블루), 구분/집행률(슬레이트) 시각화
+  - **합계 수식(`=SUM()`) 연동 & 회계 이중 마감선(`double border`)**: 값 변경 시 실시간 합계 자동 계산 및 공문서용 마감 서식 지원
+  - **넉넉한 열 너비 자동 최적화**: 긴 비목 명칭이나 큰 금액이 `###`로 잘리지 않도록 자동 배분
 - **인터랙티브 차트**:
   - **월별 지출 추이**: 3월 ~ 익년 2월(학년도 기준) 지출 추이 시각화
   - **비목/원가별 비중**: 인건비, 식품비, 운영비 등 항목별 도넛 차트
@@ -104,8 +108,11 @@ graph TD
 - **산출내역별 지출 상세 드릴다운 (Drill-down)**: 산출내역명 클릭 시 해당 비목에 매칭된 지출 품의/결의 내역을 팝업 모달(`#transaction-drilldown-modal`)로 즉시 필터링하여 조회
 
 ### 4) 📅 월별 및 산출내역별 조회 (`#tab-monthly`)
-- 학년도(3월~익년 2월) 월별 지출 현황 필터링
-- 산출내역별 월별 집행 매트릭스 그리드 제공
+- **학교회계 12개월(3월~익년 2월) 전체 연간 집행 매트릭스 그리드**: 3월부터 익년 2월까지 12개월 전 기간의 월별 지출액을 한눈에 조회
+- **월별 인터랙티브 필터링**: 임의의 월 셀/라벨 클릭 시 하단 지출실적 원장이 해당 월로 실시간 동적 필터링
+- **산출내역별 월 지출 현황 전용 엑셀(`.xlsx`) 다운로드 (`exportMonthlyMatrixToExcel()`)**:
+  - 카드 우측 상단 전용 버튼 및 상단 헤더 버튼 자동 연동
+  - 12개월 전체 월별 지출, 지출 합계, 예산 잔액이 천 단위 콤마 및 세부항목/산출내역 2단 헤더로 서식화된 엑셀 파일 즉시 생성
 
 ### 5) 📋 상세 지출실적 원장 (`#tab-transactions`)
 - K-에듀파인 지출품의/결의 수준의 세부 거래 내역 테이블
