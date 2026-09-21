@@ -3357,7 +3357,7 @@ function getDynamicAcademicYear() {
 // -------------------------------------------------------------
 // EXCEL EXPORT FOR SETTLEMENT OVERVIEW
 // -------------------------------------------------------------
-function exportSettlementToExcel() {
+async function exportSettlementToExcel() {
   if (!dashboardMappedData || dashboardMappedData.length === 0) {
     alert('다운로드할 정산 데이터가 없습니다.');
     return;
@@ -3366,10 +3366,270 @@ function exportSettlementToExcel() {
   const profileName = appState.activeProfile;
   const academicYear = getDynamicAcademicYear();
   const refDate = document.getElementById('current-date')?.innerText || '';
+  const now = new Date();
+  const printTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const fileName = `${academicYear}학년도_${profileName}_예산정산총괄표.xlsx`;
 
+  // -------------------------------------------------------------
+  // 1. ExcelJS를 활용한 고품격 디자인 & 서식 엑셀 내보내기
+  // -------------------------------------------------------------
+  if (window.ExcelJS) {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'K-Edu Budget Dashboard';
+      workbook.created = now;
+
+      const worksheet = workbook.addWorksheet('예산정산총괄표', {
+        views: [{ showGridLines: true }]
+      });
+
+      // 열 너비 설정 (금액이 ###으로 잘리지 않도록 여유 있게 배분)
+      worksheet.columns = [
+        { key: 'category', width: 32 },  // 구분
+        { key: 'revBudget', width: 18 },  // 세입 예산현액
+        { key: 'revDecided', width: 18 }, // 세입 징수결정액
+        { key: 'expBudget', width: 18 },  // 세출 예산현액
+        { key: 'expExecuted', width: 18 },// 세출 원인행위액
+        { key: 'budgetBal', width: 18 },  // 예산상 잔액
+        { key: 'actualBal', width: 18 },  // 실제 정산 잔액
+        { key: 'rate', width: 14 }        // 집행률
+      ];
+
+      // Row 1: 대타이틀
+      const titleRow = worksheet.addRow([`${academicYear}학년도 [${profileName}] 예산 정산 총괄표`]);
+      titleRow.height = 36;
+      worksheet.mergeCells('A1:H1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: 'FF1E293B' } };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF1F5F9' }
+      };
+
+      // Row 2: 부가 정보 (기준일자, 출력일시)
+      const subRow = worksheet.addRow([`정산 기준일자: ${refDate}    |    출력일시: ${printTime}    |    K-Edu 예산정산 대시보드`]);
+      subRow.height = 20;
+      worksheet.mergeCells('A2:H2');
+      const subCell = worksheet.getCell('A2');
+      subCell.font = { name: '맑은 고딕', size: 9.5, color: { argb: 'FF64748B' } };
+      subCell.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Row 3: 빈 줄 여백
+      const emptyRow = worksheet.addRow([]);
+      emptyRow.height = 10;
+
+      // Row 4 & Row 5: 2단 그룹 헤더
+      const headerRow1 = worksheet.addRow([
+        '구분 (세입 항목 기준)',
+        '세입 (재원 확보)', '',
+        '세출 (예산 집행)', '',
+        '예산상 잔액',
+        '실제 정산 잔액',
+        '집행률'
+      ]);
+      headerRow1.height = 26;
+
+      const headerRow2 = worksheet.addRow([
+        '',
+        '예산현액 (A)',
+        '징수결정액 (B)',
+        '예산현액 (C)',
+        '원인행위액 (D)',
+        '(A - D)',
+        '(B - D)',
+        '(D / C)'
+      ]);
+      headerRow2.height = 24;
+
+      // 헤더 셀 병합
+      worksheet.mergeCells('A4:A5'); // 구분
+      worksheet.mergeCells('B4:C4'); // 세입
+      worksheet.mergeCells('D4:E4'); // 세출
+      worksheet.mergeCells('F4:F5'); // 예산상 잔액
+      worksheet.mergeCells('G4:G5'); // 실제 정산 잔액
+      worksheet.mergeCells('H4:H5'); // 집행률
+
+      // 헤더 스타일 정의
+      const thinBorder = {
+        top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+      };
+
+      const styleHeader = (cell, bgColor, fontColor = 'FF1E293B') => {
+        cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: fontColor } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+        cell.border = thinBorder;
+      };
+
+      // 4~5행 헤더 셀 스타일 적용
+      for (let c = 1; c <= 8; c++) {
+        const cell4 = headerRow1.getCell(c);
+        const cell5 = headerRow2.getCell(c);
+
+        if (c === 1 || c === 8) {
+          // 구분, 집행률 (연회색)
+          styleHeader(cell4, 'FFE2E8F0', 'FF334155');
+          styleHeader(cell5, 'FFE2E8F0', 'FF334155');
+        } else if (c === 2 || c === 3) {
+          // 세입 (에메랄드 민트)
+          styleHeader(cell4, 'FFD1E7DD', 'FF0F5132');
+          styleHeader(cell5, 'FFE2F0D9', 'FF0F5132');
+        } else if (c === 4 || c === 5) {
+          // 세출 (로즈 핑크)
+          styleHeader(cell4, 'FFF8D7DA', 'FF842029');
+          styleHeader(cell5, 'FFFCE8E6', 'FF842029');
+        } else {
+          // 잔액 (스카이 블루)
+          styleHeader(cell4, 'FFCFE2FF', 'FF084298');
+          styleHeader(cell5, 'FFE8F0FE', 'FF084298');
+        }
+      }
+
+      // 테두리 스타일
+      const cellBorder = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+      };
+
+      const startDataRow = 6;
+      let currentRowNum = startDataRow;
+
+      // Row 6 ~ N: 정산 데이터 행 추가
+      dashboardMappedData.forEach((row, idx) => {
+        const isEven = idx % 2 === 1;
+        const rowBg = isEven ? 'FFF8FAFC' : 'FFFFFFFF';
+
+        const r = currentRowNum;
+        const revBudgetVal = Number(row.revBudget) || 0;
+        const revDecidedVal = Number(row.revDecided) || 0;
+        const expBudgetVal = Number(row.expBudget) || 0;
+        const expExecutedVal = Number(row.expExecuted) || 0;
+
+        // F: 예산잔액(A - D), G: 실제잔액(B - D), H: 집행률(D / C)
+        const newRow = worksheet.addRow({
+          category: row.name,
+          revBudget: revBudgetVal,
+          revDecided: revDecidedVal,
+          expBudget: expBudgetVal,
+          expExecuted: expExecutedVal,
+          budgetBal: { formula: `B${r}-E${r}`, result: revBudgetVal - expExecutedVal },
+          actualBal: { formula: `C${r}-E${r}`, result: revDecidedVal - expExecutedVal },
+          rate: { formula: `IF(D${r}>0, E${r}/D${r}, 0)`, result: expBudgetVal ? expExecutedVal / expBudgetVal : 0 }
+        });
+
+        newRow.height = 24;
+
+        // 셀별 서식 적용
+        for (let c = 1; c <= 8; c++) {
+          const cell = newRow.getCell(c);
+          cell.border = cellBorder;
+          cell.font = { name: '맑은 고딕', size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+
+          if (c === 1) {
+            // 구분명
+            cell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+          } else if (c >= 2 && c <= 7) {
+            // 금액 열: 천단위 컴마 서식 (#,##0)
+            cell.alignment = { vertical: 'middle', horizontal: 'right' };
+            cell.numFmt = '#,##0;[Red]-#,##0;"-"';
+
+            if (c === 3) {
+              // 징수결정액 강조 (초록)
+              cell.font = { name: '맑은 고딕', size: 10, color: { argb: 'FF059669' } };
+            } else if (c === 5) {
+              // 원인행위액 강조 (빨강)
+              cell.font = { name: '맑은 고딕', size: 10, color: { argb: 'FFDC2626' } };
+            } else if (c === 6) {
+              // 예산잔액 (파랑)
+              cell.font = { name: '맑은 고딕', size: 10, color: { argb: 'FF2563EB' } };
+            }
+          } else if (c === 8) {
+            // 집행률: 백분율 서식 (0.0%)
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.numFmt = '0.0%';
+          }
+        }
+
+        currentRowNum++;
+      });
+
+      const endDataRow = currentRowNum - 1;
+      const totalRowNum = currentRowNum;
+
+      // 합계 행 (Total Summary Row)
+      const totalRow = worksheet.addRow({
+        category: '합계 (총계)',
+        revBudget: { formula: `SUM(B${startDataRow}:B${endDataRow})` },
+        revDecided: { formula: `SUM(C${startDataRow}:C${endDataRow})` },
+        expBudget: { formula: `SUM(D${startDataRow}:D${endDataRow})` },
+        expExecuted: { formula: `SUM(E${startDataRow}:E${endDataRow})` },
+        budgetBal: { formula: `B${totalRowNum}-E${totalRowNum}` },
+        actualBal: { formula: `C${totalRowNum}-E${totalRowNum}` },
+        rate: { formula: `IF(D${totalRowNum}>0, E${totalRowNum}/D${totalRowNum}, 0)` }
+      });
+
+      totalRow.height = 28;
+
+      const totalBorder = {
+        top: { style: 'thin', color: { argb: 'FF64748B' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'double', color: { argb: 'FF1E293B' } }, // 회계장부 공식 이중 마감선
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+      };
+
+      for (let c = 1; c <= 8; c++) {
+        const cell = totalRow.getCell(c);
+        cell.border = totalBorder;
+        cell.font = { name: '맑은 고딕', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+
+        if (c === 1) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else if (c >= 2 && c <= 7) {
+          cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          cell.numFmt = '#,##0;[Red]-#,##0;"-"';
+          if (c === 3) cell.font = { name: '맑은 고딕', size: 10.5, bold: true, color: { argb: 'FF059669' } };
+          if (c === 5) cell.font = { name: '맑은 고딕', size: 10.5, bold: true, color: { argb: 'FFDC2626' } };
+          if (c === 6) cell.font = { name: '맑은 고딕', size: 10.5, bold: true, color: { argb: 'FF2563EB' } };
+        } else if (c === 8) {
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.numFmt = '0.0%';
+        }
+      }
+
+      // 파일 다운로드 생성 및 저장
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    } catch (err) {
+      console.warn('ExcelJS 내보내기 중 예외 발생, SheetJS 기본 방식으로 대체합니다:', err);
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 2. SheetJS Fallback (오프라인이거나 ExcelJS 없을 때 안전 대비)
+  // -------------------------------------------------------------
   const wsData = [
     [`${academicYear}학년도 [${profileName}] 예산 정산 총괄표`],
-    [`정산 기준일자: ${refDate}`],
+    [`정산 기준일자: ${refDate}  |  출력일시: ${printTime}`],
     [],
     [
       '구분 (세입 항목 기준)',
@@ -3391,7 +3651,8 @@ function exportSettlementToExcel() {
   let sumActualBal = 0;
 
   dashboardMappedData.forEach(row => {
-    const budgetBal = row.expBudget - row.expExecuted;
+    const budgetBal = (row.revBudget || 0) - (row.expExecuted || 0);
+    const actualBal = (row.revDecided || 0) - (row.expExecuted || 0);
     const rate = row.expBudget ? ((row.expExecuted / row.expBudget) * 100).toFixed(1) + '%' : '-';
 
     sumRevBudget += row.revBudget || 0;
@@ -3399,7 +3660,7 @@ function exportSettlementToExcel() {
     sumExpBudget += row.expBudget || 0;
     sumExpExecuted += row.expExecuted || 0;
     sumBudgetBal += budgetBal;
-    sumActualBal += row.actualBal || 0;
+    sumActualBal += actualBal;
 
     wsData.push([
       row.name,
@@ -3408,7 +3669,7 @@ function exportSettlementToExcel() {
       row.expBudget || 0,
       row.expExecuted || 0,
       budgetBal,
-      row.actualBal || 0,
+      actualBal,
       rate
     ]);
   });
@@ -3426,10 +3687,25 @@ function exportSettlementToExcel() {
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // 셀 서식(천단위 콤마) 및 열 너비 지정
+  ws['!cols'] = [
+    { wch: 30 }, { wch: 18 }, { wch: 18 }, { wch: 18 },
+    { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 14 }
+  ];
+
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = 3; R <= range.e.r; ++R) {
+    for (let C = 1; C <= 6; ++C) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      if (ws[cellAddress] && ws[cellAddress].t === 'n') {
+        ws[cellAddress].z = '#,##0';
+      }
+    }
+  }
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '정산총괄표');
-
-  const fileName = `${academicYear}학년도_${profileName}_예산정산총괄표.xlsx`;
   XLSX.writeFile(wb, fileName);
 }
 
