@@ -444,7 +444,14 @@
               <div class="dashboard-card">
                 <div class="card-header-row">
                   <h3>산출내역별 월 지출 현황</h3>
-                  <div id="monthly-matrix-col-toggle-anchor"></div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <button class="btn-refresh" id="btn-export-monthly-excel" title="월별 지출 현황 엑셀 다운로드"
+                      style="padding: 6px 14px; font-size: 0.8rem; height: auto; display: inline-flex; align-items: center; gap: 6px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-main); font-weight: 500;">
+                      <i class="fa-solid fa-file-excel" style="color: #10b981;"></i>
+                      <span>월별 엑셀 다운로드</span>
+                    </button>
+                    <div id="monthly-matrix-col-toggle-anchor"></div>
+                  </div>
                 </div>
                 <div class="table-responsive">
                   <table class="dashboard-table text-small" id="monthly-matrix-table">

@@ -299,14 +299,27 @@ async function init() {
       setupBackupAndRestore(); // Full Backup & Restore Setup
       setupDrilldownModal(); // Drilldown Modal Setup
 
-      // Excel Export Handlers (Top Header & Settlement Table)
+      // Excel Export Handlers (Top Header & Settlement Table & Monthly Matrix)
+      const handleDynamicExcelExport = () => {
+        const activeTab = document.querySelector('.tab-content.active');
+        if (activeTab && activeTab.id === 'tab-monthly') {
+          exportMonthlyMatrixToExcel();
+        } else {
+          exportSettlementToExcel();
+        }
+      };
+
       const btnHeaderExport = document.getElementById('btn-header-export-excel');
       if (btnHeaderExport) {
-        btnHeaderExport.addEventListener('click', exportSettlementToExcel);
+        btnHeaderExport.addEventListener('click', handleDynamicExcelExport);
       }
       const btnExportSettlement = document.getElementById('btn-export-settlement-excel');
       if (btnExportSettlement) {
         btnExportSettlement.addEventListener('click', exportSettlementToExcel);
+      }
+      const btnExportMonthly = document.getElementById('btn-export-monthly-excel');
+      if (btnExportMonthly) {
+        btnExportMonthly.addEventListener('click', exportMonthlyMatrixToExcel);
       }
 
       // Print Handlers
@@ -1979,6 +1992,24 @@ function updateMatrixHighlight() {
   });
 }
 
+// 12개 학년도 월 정의 (3월 ~ 익년 2월)
+const ACADEMIC_MONTHS = [
+  { key: '03', label: '3월 지출' },
+  { key: '04', label: '4월 지출' },
+  { key: '05', label: '5월 지출' },
+  { key: '06', label: '6월 지출' },
+  { key: '07', label: '7월 지출' },
+  { key: '08', label: '8월 지출' },
+  { key: '09', label: '9월 지출' },
+  { key: '10', label: '10월 지출' },
+  { key: '11', label: '11월 지출' },
+  { key: '12', label: '12월 지출' },
+  { key: '01', label: '1월 지출' },
+  { key: '02', label: '2월 지출' }
+];
+
+let lastMonthlyColData = [];
+
 function renderMonthlyMatrix() {
   const tbody = document.getElementById('monthly-matrix-body');
   const thead = document.querySelector('#monthly-matrix-table thead');
@@ -2010,7 +2041,7 @@ function renderMonthlyMatrix() {
     return true;
   });
 
-  // 각 산출내역별 월 지출 계산
+  // 각 산출내역별 12개월 월 지출 계산
   const colData = items.map(item => {
     const cat = item.Col_3;
     const subitem = item.Col_1 || '';
@@ -2022,22 +2053,30 @@ function renderMonthlyMatrix() {
       return hCat && hCat.trim() === cat.trim();
     });
 
-    let m3 = 0, m4 = 0, m5 = 0;
+    const monthlySpent = {};
+    ACADEMIC_MONTHS.forEach(m => { monthlySpent[m.key] = 0; });
+
+    let sumSpent = 0;
     transactions.forEach(t => {
       const date = t.일자;
       const amt = parseFloat(t.원인행위액) || 0;
       if (date && date.includes('-')) {
-        const month = date.split('-')[1];
-        if (month === '03') m3 += amt;
-        else if (month === '04') m4 += amt;
-        else if (month === '05') m5 += amt;
+        const parts = date.split('-');
+        if (parts.length >= 2) {
+          const monthKey = parts[1].padStart(2, '0');
+          if (monthlySpent[monthKey] !== undefined) {
+            monthlySpent[monthKey] += amt;
+            sumSpent += amt;
+          }
+        }
       }
     });
 
-    const sumSpent = m3 + m4 + m5;
     const remaining = budget - sumSpent;
-    return { cat, subitem, budget, m3, m4, m5, sumSpent, remaining };
+    return { cat, subitem, budget, monthlySpent, sumSpent, remaining };
   });
+
+  lastMonthlyColData = colData;
 
   // ── 헤더 동적 생성 ──────────────────────────────
   const headerTr = document.createElement('tr');
@@ -2093,15 +2132,26 @@ function renderMonthlyMatrix() {
   headerTr.appendChild(thTotal);
   thead.appendChild(headerTr);
 
-  // ── 행 데이터 정의 ─────────────────────────────
+  // ── 행 데이터 정의 (3월 ~ 익년 2월 12개월 전체 포함) ──────────────
   const rowDefs = [
-    { label: '예산현액', cls: 'text-primary-header', getValue: d => d.budget, fmt: v => formatCurrency(v), sub: false, filterMonth: null },
-    { label: '3월 지출', cls: 'text-orange', getValue: d => d.m3, fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '03' },
-    { label: '4월 지출', cls: 'text-orange', getValue: d => d.m4, fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '04' },
-    { label: '5월 지출', cls: 'text-orange', getValue: d => d.m5, fmt: v => v ? formatCurrency(v) : '-', sub: false, filterMonth: '05' },
+    { label: '예산현액', cls: 'text-primary-header', getValue: d => d.budget, fmt: v => formatCurrency(v), sub: false, filterMonth: null }
+  ];
+
+  ACADEMIC_MONTHS.forEach(m => {
+    rowDefs.push({
+      label: m.label,
+      cls: 'text-orange',
+      getValue: d => d.monthlySpent[m.key] || 0,
+      fmt: v => v ? formatCurrency(v) : '-',
+      sub: false,
+      filterMonth: m.key
+    });
+  });
+
+  rowDefs.push(
     { label: '지출 합계', cls: 'text-danger-header', getValue: d => d.sumSpent, fmt: v => v ? formatCurrency(v) : '-', sub: true, filterMonth: 'all' },
     { label: '예산 잔액', cls: 'text-blue', getValue: d => d.remaining, fmt: v => formatCurrency(v), sub: true, filterMonth: null }
-  ];
+  );
 
   rowDefs.forEach(rowDef => {
     const tr = document.createElement('tr');
@@ -3706,6 +3756,242 @@ async function exportSettlementToExcel() {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '정산총괄표');
+  XLSX.writeFile(wb, fileName);
+}
+
+// -------------------------------------------------------------
+// EXCEL EXPORT FOR MONTHLY MATRIX (12 ACADEMIC MONTHS)
+// -------------------------------------------------------------
+async function exportMonthlyMatrixToExcel() {
+  if (!lastMonthlyColData || lastMonthlyColData.length === 0) {
+    renderMonthlyMatrix();
+  }
+  if (!lastMonthlyColData || lastMonthlyColData.length === 0) {
+    alert('다운로드할 월별 지출 데이터가 없습니다.');
+    return;
+  }
+
+  const profileName = appState.activeProfile;
+  const academicYear = getDynamicAcademicYear();
+  const refDate = document.getElementById('current-date')?.innerText || '';
+  const now = new Date();
+  const printTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const fileName = `${academicYear}학년도_${profileName}_산출내역별_월지출현황.xlsx`;
+
+  const colData = lastMonthlyColData;
+  const totalCols = colData.length + 2; // 구분(1) + 각 산출내역(N) + 합계(1)
+
+  // 1. ExcelJS 고품격 서식 내보내기
+  if (window.ExcelJS) {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'K-Edu Budget Dashboard';
+      workbook.created = now;
+
+      const worksheet = workbook.addWorksheet('월별지출현황', {
+        views: [{ showGridLines: true }]
+      });
+
+      // 열 너비 정의
+      const cols = [{ width: 18 }]; // A열 (구분)
+      colData.forEach(() => {
+        cols.push({ width: 24 });
+      });
+      cols.push({ width: 22 }); // 마지막 열 (합계)
+      worksheet.columns = cols;
+
+      // Row 1: 대타이틀
+      const titleRow = worksheet.addRow([`${academicYear}학년도 [${profileName}] 산출내역별 월 지출 현황`]);
+      titleRow.height = 36;
+      worksheet.mergeCells(1, 1, 1, totalCols);
+      const titleCell = worksheet.getCell(1, 1);
+      titleCell.font = { name: '맑은 고딕', size: 15, bold: true, color: { argb: 'FF1E293B' } };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+
+      // Row 2: 부가 정보 (기준일자, 출력일시)
+      const subRow = worksheet.addRow([`정산 기준일자: ${refDate}    |    출력일시: ${printTime}    |    K-Edu 예산정산 대시보드`]);
+      subRow.height = 20;
+      worksheet.mergeCells(2, 1, 2, totalCols);
+      const subCell = worksheet.getCell(2, 1);
+      subCell.font = { name: '맑은 고딕', size: 9.5, color: { argb: 'FF64748B' } };
+      subCell.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Row 3: 빈 줄 여백
+      const emptyRow = worksheet.addRow([]);
+      emptyRow.height = 10;
+
+      // Row 4 & Row 5: 2단 헤더 (상단: 세부항목, 하단: 산출내역)
+      const hRow1Values = ['구분'];
+      const hRow2Values = [''];
+      colData.forEach(d => {
+        hRow1Values.push(d.subitem || '-');
+        hRow2Values.push(d.cat);
+      });
+      hRow1Values.push('합계');
+      hRow2Values.push('');
+
+      const hRow1 = worksheet.addRow(hRow1Values);
+      const hRow2 = worksheet.addRow(hRow2Values);
+      hRow1.height = 22;
+      hRow2.height = 24;
+
+      worksheet.mergeCells(4, 1, 5, 1); // 구분 병합
+      worksheet.mergeCells(4, totalCols, 5, totalCols); // 합계 병합
+
+      const headerBorder = {
+        top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+        right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+      };
+
+      for (let c = 1; c <= totalCols; c++) {
+        const c1 = hRow1.getCell(c);
+        const c2 = hRow2.getCell(c);
+        [c1, c2].forEach(cell => {
+          cell.border = headerBorder;
+          cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: c === totalCols ? 'FFCFE2FF' : 'FFE2E8F0' } };
+        });
+      }
+
+      const cellBorder = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+      };
+
+      // 행 정의 목록 (예산현액 + 12개 월 지출 + 지출 합계 + 예산 잔액)
+      const exportRows = [
+        { label: '예산현액', getValue: d => d.budget, isSub: false, isSpent: false, isBalance: false }
+      ];
+
+      ACADEMIC_MONTHS.forEach(m => {
+        exportRows.push({
+          label: m.label,
+          getValue: d => d.monthlySpent[m.key] || 0,
+          isSub: false,
+          isSpent: false,
+          isBalance: false
+        });
+      });
+
+      exportRows.push(
+        { label: '지출 합계', getValue: d => d.sumSpent, isSub: true, isSpent: true, isBalance: false },
+        { label: '예산 잔액', getValue: d => d.remaining, isSub: true, isSpent: false, isBalance: true }
+      );
+
+      // 데이터 행 추가
+      exportRows.forEach((rDef, idx) => {
+        const isEven = idx % 2 === 1;
+        const rowBg = rDef.isSub ? 'FFF1F5F9' : (isEven ? 'FFF8FAFC' : 'FFFFFFFF');
+
+        const rowValues = [rDef.label];
+        let rowSum = 0;
+        colData.forEach(d => {
+          const val = rDef.getValue(d);
+          rowValues.push(val);
+          rowSum += val;
+        });
+        rowValues.push(rowSum);
+
+        const row = worksheet.addRow(rowValues);
+        row.height = rDef.isSub ? 26 : 24;
+
+        for (let c = 1; c <= totalCols; c++) {
+          const cell = row.getCell(c);
+          cell.border = cellBorder;
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+          cell.font = { name: '맑은 고딕', size: 10, bold: rDef.isSub || c === totalCols };
+
+          if (c === 1) {
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          } else {
+            cell.alignment = { vertical: 'middle', horizontal: 'right' };
+            cell.numFmt = '#,##0;[Red]-#,##0;"-"';
+
+            if (rDef.isSpent) {
+              cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FFDC2626' } };
+            } else if (rDef.isBalance) {
+              cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FF2563EB' } };
+            }
+          }
+
+          if (rDef.isBalance) {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'double', color: { argb: 'FF1E293B' } }, // 회계 이중 마감선
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+          }
+        }
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    } catch (err) {
+      console.warn('ExcelJS 월별 내보내기 실패, SheetJS 기본 방식으로 대체합니다:', err);
+    }
+  }
+
+  // 2. SheetJS Fallback
+  const wsData = [
+    [`${academicYear}학년도 [${profileName}] 산출내역별 월 지출 현황`],
+    [`정산 기준일자: ${refDate}  |  출력일시: ${printTime}`],
+    [],
+    ['구분', ...colData.map(d => `${d.subitem ? d.subitem + ' / ' : ''}${d.cat}`), '합계']
+  ];
+
+  const exportRowsFallback = [
+    { label: '예산현액', getValue: d => d.budget },
+    ...ACADEMIC_MONTHS.map(m => ({ label: m.label, getValue: d => d.monthlySpent[m.key] || 0 })),
+    { label: '지출 합계', getValue: d => d.sumSpent },
+    { label: '예산 잔액', getValue: d => d.remaining }
+  ];
+
+  exportRowsFallback.forEach(rDef => {
+    let rowSum = 0;
+    const row = [rDef.label];
+    colData.forEach(d => {
+      const v = rDef.getValue(d);
+      row.push(v);
+      rowSum += v;
+    });
+    row.push(rowSum);
+    wsData.push(row);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const cols = [{ wch: 18 }, ...colData.map(() => ({ wch: 24 })), { wch: 22 }];
+  ws['!cols'] = cols;
+
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = 3; R <= range.e.r; ++R) {
+    for (let C = 1; C <= totalCols - 1; ++C) {
+      const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+      if (ws[cellAddress] && ws[cellAddress].t === 'n') {
+        ws[cellAddress].z = '#,##0';
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '월별지출현황');
   XLSX.writeFile(wb, fileName);
 }
 
